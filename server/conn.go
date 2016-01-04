@@ -10,23 +10,42 @@ import (
 	"github.com/surgemq/message"
 )
 
+// PreConn represents half-connected connection.
+type PreConn interface {
+	SetReceiveHandler(rh ReceiveHandler)
+}
+
 // Conn represents a MQTT client connection.
 type Conn interface {
+	// Close closes a connection.
+	Close() error
+
+	// Send sends a message to connection.
+	Send(msg message.Message) error
+
+	// Server returns corresponding server.
+	Server() *Server
 }
 
 type connID uint64
 
 type conn struct {
-	id connID
-
 	server *Server
 	rwc    net.Conn
 	reader *bufio.Reader
 	writer io.Writer
 
-	quit chan bool
-	wg   sync.WaitGroup
+	id    connID
+	wg    sync.WaitGroup
+	quit  chan bool
+	sendQ chan message.Message
+	rh    ReceiveHandler
 }
+
+var (
+	_ Conn    = (*conn)(nil)
+	_ PreConn = (*conn)(nil)
+)
 
 func newConn(srv *Server, rwc net.Conn) *conn {
 	return &conn{
@@ -35,11 +54,13 @@ func newConn(srv *Server, rwc net.Conn) *conn {
 		reader: bufio.NewReader(rwc),
 		writer: rwc,
 		quit:   make(chan bool, 1),
+		sendQ:  make(chan message.Message, 1),
 	}
 }
 
 func (c *conn) Close() error {
 	close(c.quit)
+	close(c.sendQ)
 	c.wg.Wait()
 	return nil
 }
@@ -59,7 +80,7 @@ func (c *conn) establishConnection() error {
 	resp := message.NewConnackMessage()
 	resp.SetSessionPresent(true)
 	resp.SetReturnCode(message.ConnectionAccepted)
-	err = writeMessage(c.writer, resp)
+	_, err = writeMessage(c.writer, resp)
 	if err != nil {
 		return err
 	}
@@ -103,8 +124,27 @@ loop:
 		select {
 		case <-c.quit:
 			break loop
+		case m := <-c.sendQ:
+			_, err := writeMessage(c.writer, m)
+			if err != nil {
+				debug.Printf("mqtt: writeMessage failed: %v, id=%d\n",
+					err, c.id)
+			}
 		}
-		// TODO:
 	}
 	c.wg.Done()
+}
+
+func (c *conn) SetReceiveHandler(rh ReceiveHandler) {
+	c.rh = rh
+}
+
+func (c *conn) Send(msg message.Message) error {
+	// FIXME: guard against sending to closed channel.
+	c.sendQ <- msg
+	return nil
+}
+
+func (c *conn) Server() *Server {
+	return c.server
 }

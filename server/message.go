@@ -9,23 +9,19 @@ import (
 	"github.com/surgemq/message"
 )
 
-func writeMessage(w io.Writer, msg message.Message) error {
+func writeMessage(w io.Writer, msg message.Message) (int, error) {
 	b := make([]byte, msg.Len())
 	_, err := msg.Encode(b)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	_, err = w.Write(b)
-	if err != nil {
-		return err
-	}
-	return err
+	return w.Write(b)
 }
 
-func writeConnackErrorMessage(w io.Writer, err error) error {
-	cerr, ok := err.(message.ConnackCode);
+func writeConnackErrorMessage(w io.Writer, err error) (int, error) {
+	cerr, ok := err.(message.ConnackCode)
 	if !ok {
-		return nil
+		return 0, nil
 	}
 	resp := message.NewConnackMessage()
 	resp.SetSessionPresent(false)
