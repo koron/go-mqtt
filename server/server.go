@@ -22,15 +22,16 @@ var (
 
 // Server is a instance of MQTT server.
 type Server struct {
-	Addr    string
-	Handler Handler
+	Addr           string
+	ConnectHandler ConnectHandler
 
 	quit     chan bool
 	listener net.Listener
 
 	connLock sync.Mutex
 	conns    map[connID]*conn
-	connID   connID // next connID to issue
+	connID   connID         // next connID to issue
+	connWait sync.WaitGroup // wait goroutines of conn.serve()
 }
 
 func (srv *Server) addr() string {
@@ -52,6 +53,7 @@ func (srv *Server) ListenAndServe() error {
 	}
 	srv.conns = make(map[connID]*conn)
 	srv.connID = 0
+	srv.connWait = sync.WaitGroup{}
 	return srv.Serve(l)
 }
 
@@ -85,8 +87,12 @@ func (srv *Server) Serve(l net.Listener) error {
 			}
 			return err
 		}
+		srv.connWait.Add(1)
 		c := newConn(srv, rw)
-		go c.serve()
+		go func() {
+			c.serve()
+			srv.connWait.Done()
+		}()
 	}
 }
 
@@ -97,11 +103,13 @@ func (srv *Server) Close() error {
 	srv.listener.Close()
 	// close all connections.
 	srv.connLock.Lock()
-	defer srv.connLock.Unlock()
 	for _, c := range srv.conns {
 		c.Close()
 	}
 	srv.conns = nil
+	srv.connLock.Unlock()
+	// wait to terminate all conns.
+	srv.connWait.Wait()
 	return nil
 }
 
@@ -120,8 +128,10 @@ func (srv *Server) newConn(rwc net.Conn) (*conn, error) {
 }
 
 func (srv *Server) authenticate(c *conn, m *message.ConnectMessage) error {
-	// TODO: authenticate ConnectMessage.
-	return nil
+	if srv.ConnectHandler == nil {
+		return nil
+	}
+	return srv.ConnectHandler(srv, c, m)
 }
 
 func (srv *Server) register(c *conn) error {

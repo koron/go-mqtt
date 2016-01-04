@@ -4,19 +4,28 @@ import (
 	"bufio"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/koron/go-debug"
 	"github.com/surgemq/message"
 )
 
+// Conn represents a MQTT client connection.
+type Conn interface {
+}
+
 type connID uint64
 
 type conn struct {
+	id connID
+
 	server *Server
 	rwc    net.Conn
 	reader *bufio.Reader
 	writer io.Writer
-	id     connID
+
+	quit chan bool
+	wg   sync.WaitGroup
 }
 
 func newConn(srv *Server, rwc net.Conn) *conn {
@@ -25,12 +34,13 @@ func newConn(srv *Server, rwc net.Conn) *conn {
 		rwc:    rwc,
 		reader: bufio.NewReader(rwc),
 		writer: rwc,
+		quit:   make(chan bool, 1),
 	}
 }
 
 func (c *conn) Close() error {
-	c.rwc.Close()
-	// TODO: terminate goroutines for a conn.
+	close(c.quit)
+	c.wg.Wait()
 	return nil
 }
 
@@ -57,7 +67,7 @@ func (c *conn) establishConnection() error {
 }
 
 func (c *conn) serve() {
-	defer c.Close()
+	defer c.rwc.Close()
 	err := c.establishConnection()
 	if err != nil {
 		debug.Printf("mqtt: establishConnection failed: %v\n", err)
@@ -68,19 +78,33 @@ func (c *conn) serve() {
 		debug.Printf("mqtt: register failed: %v\n", err)
 		return
 	}
+	c.wg = sync.WaitGroup{}
+	c.wg.Add(2)
 	go c.recvMain()
 	c.sendMain()
 	c.server.unregister(c)
 }
 
 func (c *conn) recvMain() {
+loop:
 	for {
+		select {
+		case <-c.quit:
+			break loop
+		}
 		// TODO:
 	}
+	c.wg.Done()
 }
 
 func (c *conn) sendMain() {
+loop:
 	for {
+		select {
+		case <-c.quit:
+			break loop
+		}
 		// TODO:
 	}
+	c.wg.Done()
 }
