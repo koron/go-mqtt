@@ -68,6 +68,7 @@ func newConn(srv *Server, rwc net.Conn) *conn {
 func (c *conn) Close() error {
 	close(c.quit)
 	close(c.sendQ)
+	c.rwc.Close()
 	c.wg.Wait()
 	return nil
 }
@@ -95,7 +96,6 @@ func (c *conn) establishConnection() error {
 }
 
 func (c *conn) serve() {
-	defer c.rwc.Close()
 	err := c.establishConnection()
 	if err != nil {
 		debug.Printf("mqtt: establishConnection failed: %v\n", err)
@@ -119,8 +119,19 @@ loop:
 		select {
 		case <-c.quit:
 			break loop
+		default:
 		}
-		// TODO:
+		msg, err := readMessage(c.reader)
+		if err != nil {
+			debug.Printf("mqtt: readMessage failed: %v, id=%d\n", err, c.id)
+			continue
+		}
+		if c.rh != nil {
+			err := c.rh(c, msg)
+			if err != nil {
+				debug.Printf("mqtt: ReceiveHandler failed: %v, id=%d\n", err, c.id)
+			}
+		}
 	}
 	c.wg.Done()
 }
@@ -134,8 +145,7 @@ loop:
 		case m := <-c.sendQ:
 			_, err := writeMessage(c.writer, m)
 			if err != nil {
-				debug.Printf("mqtt: writeMessage failed: %v, id=%d\n",
-					err, c.id)
+				debug.Printf("mqtt: writeMessage failed: %v, id=%d\n", err, c.id)
 			}
 		}
 	}

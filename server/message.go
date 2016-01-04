@@ -29,6 +29,23 @@ func writeConnackErrorMessage(w io.Writer, err error) (int, error) {
 	return writeMessage(w, resp)
 }
 
+func readMessage(r *bufio.Reader) (message.Message, error) {
+	b, err := readRawMessage(r)
+	if err != nil {
+		return nil, err
+	}
+	t := message.MessageType(b[0] >> 4)
+	msg, err := t.New()
+	if err != nil {
+		return nil, err
+	}
+	_, err = msg.Decode(b)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
 func readRawMessage(r *bufio.Reader) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	// read header: message type
