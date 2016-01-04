@@ -2,13 +2,22 @@ package server
 
 import (
 	"bufio"
-	"io"
+	"errors"
 	"net"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/koron/go-debug"
 	"github.com/surgemq/message"
+)
+
+var (
+	// ErrServerClosed indicates a server have been closed already.
+	ErrServerClosed = errors.New("server have been closed")
+
+	// ErrTooManyConnections indicates too many connections for a server.
+	ErrTooManyConnections = errors.New("too many connections")
 )
 
 // Server is a instance of MQTT server.
@@ -18,6 +27,10 @@ type Server struct {
 
 	quit     chan bool
 	listener net.Listener
+
+	connLock sync.Mutex
+	conns    map[connID]*conn
+	connID   connID // next connID to issue
 }
 
 func (srv *Server) addr() string {
@@ -37,6 +50,8 @@ func (srv *Server) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
+	srv.conns = make(map[connID]*conn)
+	srv.connID = 0
 	return srv.Serve(l)
 }
 
@@ -70,11 +85,7 @@ func (srv *Server) Serve(l net.Listener) error {
 			}
 			return err
 		}
-		c, err := srv.newConn(rw)
-		if err != nil {
-			debug.Printf("newConn failed: %v\n", err)
-			continue
-		}
+		c := newConn(srv, rw)
 		go c.serve()
 	}
 }
@@ -84,7 +95,13 @@ func (srv *Server) Serve(l net.Listener) error {
 func (srv *Server) Close() error {
 	close(srv.quit)
 	srv.listener.Close()
-	// TODO: close each connections.
+	// close all connections.
+	srv.connLock.Lock()
+	defer srv.connLock.Unlock()
+	for _, c := range srv.conns {
+		c.Close()
+	}
+	srv.conns = nil
 	return nil
 }
 
@@ -107,60 +124,37 @@ func (srv *Server) authenticate(c *conn, m *message.ConnectMessage) error {
 	return nil
 }
 
-type conn struct {
-	server *Server
-	rwc    net.Conn
-	reader *bufio.Reader
-	writer io.Writer
-}
-
-func (c *conn) Close() error {
-	c.rwc.Close()
-	// FIXME: notify closing to server.
+func (srv *Server) register(c *conn) error {
+	srv.connLock.Lock()
+	defer srv.connLock.Unlock()
+	if srv.conns == nil {
+		return ErrServerClosed
+	}
+	start := srv.connID
+	for {
+		if _, ok := srv.conns[srv.connID]; !ok && srv.connID != 0 {
+			break
+		}
+		srv.connID++
+		if start == srv.connID {
+			return ErrTooManyConnections
+		}
+	}
+	c.id = srv.connID
+	srv.conns[srv.connID] = c
+	srv.connID++
 	return nil
 }
 
-func (c *conn) establishConnection() error {
-	req, err := readConnectMessage(c.reader)
-	if err != nil {
-		writeConnackErrorMessage(c.writer, err)
-		return err
-	}
-	err = c.server.authenticate(c, req)
-	if err != nil {
-		writeConnackErrorMessage(c.writer, err)
-		return err
-	}
-	// send connack message.
-	resp := message.NewConnackMessage()
-	resp.SetSessionPresent(true)
-	resp.SetReturnCode(message.ConnectionAccepted)
-	err = writeMessage(c.writer, resp)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *conn) serve() {
-	defer c.Close()
-	err := c.establishConnection()
-	if err != nil {
-		debug.Printf("establishConnection failed: %v\n", err)
+func (srv *Server) unregister(c *conn) {
+	srv.connLock.Lock()
+	defer srv.connLock.Unlock()
+	if srv.conns == nil {
 		return
 	}
-	go c.recvMain()
-	c.sendMain()
-}
-
-func (c *conn) recvMain() {
-	for {
-		// TODO:
+	v, ok := srv.conns[c.id]
+	if !ok || v != c {
+		return
 	}
-}
-
-func (c *conn) sendMain() {
-	for {
-		// TODO:
-	}
+	delete(srv.conns, c.id)
 }
