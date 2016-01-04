@@ -1,11 +1,14 @@
 package server
 
 import (
+	"bufio"
+	"io"
 	"net"
 	"net/url"
 	"time"
 
 	"github.com/koron/go-debug"
+	"github.com/surgemq/message"
 )
 
 // Server is a instance of MQTT server.
@@ -92,15 +95,72 @@ func (srv *Server) logf(format string, args ...interface{}) {
 func (srv *Server) newConn(rwc net.Conn) (*conn, error) {
 	c := &conn{
 		server: srv,
+		rwc:    rwc,
+		reader: bufio.NewReader(rwc),
+		writer: rwc,
 	}
-	// TODO:
 	return c, nil
+}
+
+func (srv *Server) authenticate(c *conn, m *message.ConnectMessage) error {
+	// TODO: authenticate ConnectMessage.
+	return nil
 }
 
 type conn struct {
 	server *Server
+	rwc    net.Conn
+	reader *bufio.Reader
+	writer io.Writer
+}
+
+func (c *conn) Close() error {
+	c.rwc.Close()
+	// FIXME: notify closing to server.
+	return nil
+}
+
+func (c *conn) establishConnection() error {
+	req, err := readConnectMessage(c.reader)
+	if err != nil {
+		writeConnackErrorMessage(c.writer, err)
+		return err
+	}
+	err = c.server.authenticate(c, req)
+	if err != nil {
+		writeConnackErrorMessage(c.writer, err)
+		return err
+	}
+	// send connack message.
+	resp := message.NewConnackMessage()
+	resp.SetSessionPresent(true)
+	resp.SetReturnCode(message.ConnectionAccepted)
+	err = writeMessage(c.writer, resp)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *conn) serve() {
-	// TODO: serve MQTT session.
+	defer c.Close()
+	err := c.establishConnection()
+	if err != nil {
+		debug.Printf("establishConnection failed: %v\n", err)
+		return
+	}
+	go c.recvMain()
+	c.sendMain()
+}
+
+func (c *conn) recvMain() {
+	for {
+		// TODO:
+	}
+}
+
+func (c *conn) sendMain() {
+	for {
+		// TODO:
+	}
 }
