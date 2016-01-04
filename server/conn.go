@@ -12,7 +12,11 @@ import (
 
 // PreConn represents half-connected connection.
 type PreConn interface {
+	// SetReceiveHandler binds ReceiveHandler to connection.
 	SetReceiveHandler(rh ReceiveHandler)
+
+	// Conn returns corresponding net.Conn.
+	Conn() net.Conn
 }
 
 // Conn represents a MQTT client connection.
@@ -25,6 +29,9 @@ type Conn interface {
 
 	// Server returns corresponding server.
 	Server() *Server
+
+	// Conn returns corresponding net.Conn.
+	Conn() net.Conn
 }
 
 type connID uint64
@@ -133,6 +140,10 @@ loop:
 		}
 	}
 	c.wg.Done()
+}
+
+func (c *conn) Conn() net.Conn {
+	return c.rwc
 }
 
 func (c *conn) SetReceiveHandler(rh ReceiveHandler) {
