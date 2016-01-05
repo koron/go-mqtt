@@ -12,6 +12,14 @@ func recv(conn server.Conn, msg message.Message) error {
 	return nil
 }
 
+func sent(conn server.Conn, msg message.Message) error {
+	switch msg.(type) {
+	case *message.SubackMessage:
+		return conn.Publish("a/b/c", []byte("Hello MQTT"), message.QosAtMostOnce)
+	}
+	return nil
+}
+
 func sub(conn server.Conn, topic string, qos byte) (byte, error) {
 	log.Printf("SUBSCRIBE: %q qos=%d\n", topic, qos)
 	return qos, nil
@@ -20,6 +28,7 @@ func sub(conn server.Conn, topic string, qos byte) (byte, error) {
 func conn(srv *server.Server, conn server.PreConn, msg *message.ConnectMessage) error {
 	log.Printf("CONNECT: %v\n", msg)
 	conn.SetReceiveHandler(recv)
+	conn.SetSentHandler(sent)
 	conn.SetSubscribeHandler(sub)
 	return nil
 }

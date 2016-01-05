@@ -12,5 +12,8 @@ type DisconnectedHandler func(srv *Server, conn DisConn, msg *message.Disconnect
 // ReceiveHandler called when receive a MQTT message.
 type ReceiveHandler func(conn Conn, msg message.Message) error
 
+// SentHandler called after sent a MQTT message.
+type SentHandler func(conn Conn, msg message.Message) error
+
 // SubscribleHandler called each topic to subscribe.
 type SubscribleHandler func(conn Conn, topic string, requestedQos byte) (qos byte, err error)

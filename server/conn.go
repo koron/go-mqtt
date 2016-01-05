@@ -16,7 +16,10 @@ type PreConn interface {
 	SetData(v interface{})
 
 	// SetReceiveHandler binds ReceiveHandler to connection.
-	SetReceiveHandler(rh ReceiveHandler)
+	SetReceiveHandler(h ReceiveHandler)
+
+	// SetSentHandler binds SentHandler to connection.
+	SetSentHandler(h SentHandler)
 
 	// SetSubscribeHandler binds SubscribleHandler to connection.
 	SetSubscribeHandler(h SubscribleHandler)
@@ -33,17 +36,20 @@ type Conn interface {
 	// Data returns user corresponded data.
 	Data() interface{}
 
-	// Close closes a connection.
-	Close() error
-
-	// Send sends a message to connection.
-	Send(msg message.Message) error
-
 	// Server returns corresponding server.
 	Server() *Server
 
 	// Conn returns corresponding net.Conn.
 	Conn() net.Conn
+
+	// Send sends a raw MQTT message.
+	Send(msg message.Message) error
+
+	// Publish publishes a message.
+	Publish(topic string, body []byte, qos byte) error
+
+	// Close closes a connection.
+	Close() error
 }
 
 // DisConn represents a closed MQTT client connection.
@@ -67,7 +73,8 @@ type conn struct {
 	id   ConnID
 	data interface{}
 	rh   ReceiveHandler
-	sh   SubscribleHandler
+	sh   SentHandler
+	subh SubscribleHandler
 
 	wg    sync.WaitGroup
 	quit  chan bool
@@ -174,8 +181,8 @@ func (c *conn) processSubscribe(req *message.SubscribeMessage) error {
 	rc := make([]byte, 0, len(topics))
 	for i, t := range topics {
 		tqos := qos[i]
-		if c.sh != nil {
-			q, err := c.sh(c, string(t), qos[i])
+		if c.subh != nil {
+			q, err := c.subh(c, string(t), qos[i])
 			if err != nil {
 				debug.Printf("mqtt: topic disabled: %s (id=%d)\n", t, c.id)
 				q = message.QosFailure
@@ -190,8 +197,7 @@ func (c *conn) processSubscribe(req *message.SubscribeMessage) error {
 	if err := resp.AddReturnCodes(rc); err != nil {
 		return err
 	}
-	c.sendQ <- resp
-	return nil
+	return c.Send(resp)
 }
 
 func (c *conn) recvMain() {
@@ -205,7 +211,7 @@ loop:
 		msg, err := readMessage(c.reader)
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
-				// TODO:
+				// TODO: exponential backoff sleep.
 				continue
 			}
 			debug.Printf("mqtt: conn closed: %v (id=%d)", err, c.id)
@@ -240,6 +246,13 @@ loop:
 			_, err := writeMessage(c.writer, m)
 			if err != nil {
 				debug.Printf("mqtt: writeMessage failed: %v (id=%d)\n", err, c.id)
+				continue loop
+			}
+			if c.sh != nil {
+				err := c.sh(c, m)
+				if err != nil {
+					debug.Printf("mqtt: SentHandler failed %v (id=%d)\n", err, c.id)
+				}
 			}
 		}
 	}
@@ -254,14 +267,26 @@ func (c *conn) SetReceiveHandler(h ReceiveHandler) {
 	c.rh = h
 }
 
-func (c *conn) SetSubscribeHandler(h SubscribleHandler) {
+func (c *conn) SetSentHandler(h SentHandler) {
 	c.sh = h
 }
 
+func (c *conn) SetSubscribeHandler(h SubscribleHandler) {
+	c.subh = h
+}
+
 func (c *conn) Send(msg message.Message) error {
-	// FIXME: guard against sending to closed channel.
+	// TODO: guard against sending to closed channel.
 	c.sendQ <- msg
 	return nil
+}
+
+func (c *conn) Publish(topic string, body []byte, qos byte) error {
+	msg := message.NewPublishMessage()
+	msg.SetTopic([]byte(topic))
+	msg.SetQoS(qos)
+	msg.SetPayload(body)
+	return c.Send(msg)
 }
 
 func (c *conn) Server() *Server {

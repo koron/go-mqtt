@@ -7,6 +7,11 @@ import (
 	"github.com/surgemq/surgemq/service"
 )
 
+func pub(msg *message.PublishMessage) error {
+	log.Printf("on publish: topic=%s payload=%s\n", string(msg.Topic()), string(msg.Payload()))
+	return nil
+}
+
 func main() {
 	c := &service.Client{}
 
@@ -27,11 +32,7 @@ func main() {
 		log.Printf("on complete subscribe: msg=%#v ack=%#v err=%v\n", msg, ack, err)
 		return err
 	}
-	onPub := func(msg *message.PublishMessage) error {
-		log.Printf("on publish: %#v\n", msg)
-		return nil
-	}
-	if err := c.Subscribe(msgSub, onComp, onPub); err != nil {
+	if err := c.Subscribe(msgSub, onComp, pub); err != nil {
 		log.Fatal(err)
 	}
 	log.Println("subscribed")
