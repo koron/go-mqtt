@@ -24,6 +24,9 @@ type PreConn interface {
 	// SetSubscribeHandler binds SubscribleHandler to connection.
 	SetSubscribeHandler(h SubscribleHandler)
 
+	// SetPublishedHandler binds PublishedHandler to conn.
+	SetPublishedHandler(h PublishedHandler)
+
 	// Conn returns corresponding net.Conn.
 	Conn() net.Conn
 }
@@ -75,6 +78,7 @@ type conn struct {
 	rh   ReceiveHandler
 	sh   SentHandler
 	subh SubscribleHandler
+	pubh PublishedHandler
 
 	wg    sync.WaitGroup
 	quit  chan bool
@@ -171,6 +175,8 @@ func (c *conn) processMessage(msg message.Message) error {
 		c.closeAll()
 	case *message.SubscribeMessage:
 		return c.processSubscribe(m)
+	case *message.PublishMessage:
+		return c.processPublish(m)
 	}
 	return nil
 }
@@ -198,6 +204,17 @@ func (c *conn) processSubscribe(req *message.SubscribeMessage) error {
 		return err
 	}
 	return c.Send(resp)
+}
+
+func (c *conn) processPublish(req *message.PublishMessage) error {
+	if c.pubh != nil {
+		err := c.pubh(c, req)
+		if err != nil {
+			return err
+		}
+	}
+	// FIXME: consider PUBACK and PUBCOMP.
+	return nil
 }
 
 func (c *conn) recvMain() {
@@ -273,6 +290,10 @@ func (c *conn) SetSentHandler(h SentHandler) {
 
 func (c *conn) SetSubscribeHandler(h SubscribleHandler) {
 	c.subh = h
+}
+
+func (c *conn) SetPublishedHandler(h PublishedHandler) {
+	c.pubh = h
 }
 
 func (c *conn) Send(msg message.Message) error {

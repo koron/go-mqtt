@@ -17,3 +17,6 @@ type SentHandler func(conn Conn, msg message.Message) error
 
 // SubscribleHandler called each topic to subscribe.
 type SubscribleHandler func(conn Conn, topic string, requestedQos byte) (qos byte, err error)
+
+// PublishedHandler notifies a PUBLISH message.
+type PublishedHandler func(con Conn, msg *message.PublishMessage) error
