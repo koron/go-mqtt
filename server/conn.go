@@ -12,8 +12,14 @@ import (
 
 // PreConn represents half-connected connection.
 type PreConn interface {
+	// SetData binds a user defined data to connection.
+	SetData(v interface{})
+
 	// SetReceiveHandler binds ReceiveHandler to connection.
 	SetReceiveHandler(rh ReceiveHandler)
+
+	// SetSubscribeHandler binds SubscribleHandler to connection.
+	SetSubscribeHandler(h SubscribleHandler)
 
 	// Conn returns corresponding net.Conn.
 	Conn() net.Conn
@@ -21,6 +27,12 @@ type PreConn interface {
 
 // Conn represents a MQTT client connection.
 type Conn interface {
+	// ID returns connection ID.
+	ID() ConnID
+
+	// Data returns user corresponded data.
+	Data() interface{}
+
 	// Close closes a connection.
 	Close() error
 
@@ -34,7 +46,17 @@ type Conn interface {
 	Conn() net.Conn
 }
 
-type connID uint64
+// DisConn represents a closed MQTT client connection.
+type DisConn interface {
+	// ID returns connection ID.
+	ID() ConnID
+
+	// Data returns user corresponded data.
+	Data() interface{}
+}
+
+// ConnID identifies connections in a Server.
+type ConnID uint64
 
 type conn struct {
 	server *Server
@@ -42,16 +64,22 @@ type conn struct {
 	reader *bufio.Reader
 	writer io.Writer
 
-	id    connID
+	id   ConnID
+	data interface{}
+	rh   ReceiveHandler
+	sh   SubscribleHandler
+
 	wg    sync.WaitGroup
 	quit  chan bool
 	sendQ chan message.Message
-	rh    ReceiveHandler
+
+	disconnect *message.DisconnectMessage
 }
 
 var (
 	_ Conn    = (*conn)(nil)
 	_ PreConn = (*conn)(nil)
+	_ DisConn = (*conn)(nil)
 )
 
 func newConn(srv *Server, rwc net.Conn) *conn {
@@ -69,6 +97,18 @@ func (c *conn) closeAll() {
 	close(c.quit)
 	close(c.sendQ)
 	c.rwc.Close()
+}
+
+func (c *conn) ID() ConnID {
+	return c.id
+}
+
+func (c *conn) Data() interface{} {
+	return c.data
+}
+
+func (c *conn) SetData(v interface{}) {
+	c.data = v
 }
 
 func (c *conn) Close() error {
@@ -117,6 +157,43 @@ func (c *conn) serve() {
 	c.server.unregister(c)
 }
 
+func (c *conn) processMessage(msg message.Message) error {
+	switch m := msg.(type) {
+	case *message.DisconnectMessage:
+		c.disconnect = m
+		c.closeAll()
+	case *message.SubscribeMessage:
+		return c.processSubscribe(m)
+	}
+	return nil
+}
+
+func (c *conn) processSubscribe(req *message.SubscribeMessage) error {
+	topics := req.Topics()
+	qos := req.Qos()
+	rc := make([]byte, 0, len(topics))
+	for i, t := range topics {
+		tqos := qos[i]
+		if c.sh != nil {
+			q, err := c.sh(c, string(t), qos[i])
+			if err != nil {
+				debug.Printf("mqtt: topic disabled: %s (id=%d)\n", t, c.id)
+				q = message.QosFailure
+			}
+			tqos = q
+		}
+		rc = append(rc, tqos)
+	}
+	// send SUBACK
+	resp := message.NewSubackMessage()
+	resp.SetPacketId(req.PacketId())
+	if err := resp.AddReturnCodes(rc); err != nil {
+		return err
+	}
+	c.sendQ <- resp
+	return nil
+}
+
 func (c *conn) recvMain() {
 loop:
 	for {
@@ -139,7 +216,12 @@ loop:
 			err := c.rh(c, msg)
 			if err != nil {
 				debug.Printf("mqtt: ReceiveHandler failed: %v (id=%d)\n", err, c.id)
+				continue loop
 			}
+		}
+		err = c.processMessage(msg)
+		if err != nil {
+			debug.Printf("mqtt: processMessage failed: %v (id=%d)\n", err, c.id)
 		}
 	}
 	c.wg.Done()
@@ -168,8 +250,12 @@ func (c *conn) Conn() net.Conn {
 	return c.rwc
 }
 
-func (c *conn) SetReceiveHandler(rh ReceiveHandler) {
-	c.rh = rh
+func (c *conn) SetReceiveHandler(h ReceiveHandler) {
+	c.rh = h
+}
+
+func (c *conn) SetSubscribeHandler(h SubscribleHandler) {
+	c.sh = h
 }
 
 func (c *conn) Send(msg message.Message) error {

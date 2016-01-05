@@ -22,15 +22,16 @@ var (
 
 // Server is a instance of MQTT server.
 type Server struct {
-	Addr           string
-	ConnectHandler ConnectHandler
+	Addr                string
+	ConnectHandler      ConnectHandler
+	DisconnectedHandler DisconnectedHandler
 
 	quit     chan bool
 	listener net.Listener
 
 	connLock sync.Mutex
-	conns    map[connID]*conn
-	connID   connID         // next connID to issue
+	conns    map[ConnID]*conn
+	connID   ConnID         // next ConnID to issue
 	connWait sync.WaitGroup // wait goroutines of conn.serve()
 }
 
@@ -51,7 +52,7 @@ func (srv *Server) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	srv.conns = make(map[connID]*conn)
+	srv.conns = make(map[ConnID]*conn)
 	srv.connID = 0
 	srv.connWait = sync.WaitGroup{}
 	return srv.Serve(l)
@@ -166,6 +167,8 @@ func (srv *Server) unregister(c *conn) {
 	if !ok || v != c {
 		return
 	}
-	debug.Printf("mqtt: unregister conn: id=%d\n", c.id)
 	delete(srv.conns, c.id)
+	if srv.DisconnectedHandler != nil {
+		srv.DisconnectedHandler(srv, v, v.disconnect)
+	}
 }
