@@ -65,10 +65,14 @@ func newConn(srv *Server, rwc net.Conn) *conn {
 	}
 }
 
-func (c *conn) Close() error {
+func (c *conn) closeAll() {
 	close(c.quit)
 	close(c.sendQ)
 	c.rwc.Close()
+}
+
+func (c *conn) Close() error {
+	c.closeAll()
 	c.wg.Wait()
 	return nil
 }
@@ -123,13 +127,18 @@ loop:
 		}
 		msg, err := readMessage(c.reader)
 		if err != nil {
-			debug.Printf("mqtt: readMessage failed: %v, id=%d\n", err, c.id)
-			continue
+			if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+				// TODO:
+				continue
+			}
+			debug.Printf("mqtt: conn closed: %v (id=%d)", err, c.id)
+			c.closeAll()
+			break loop
 		}
 		if c.rh != nil {
 			err := c.rh(c, msg)
 			if err != nil {
-				debug.Printf("mqtt: ReceiveHandler failed: %v, id=%d\n", err, c.id)
+				debug.Printf("mqtt: ReceiveHandler failed: %v (id=%d)\n", err, c.id)
 			}
 		}
 	}
@@ -143,9 +152,12 @@ loop:
 		case <-c.quit:
 			break loop
 		case m := <-c.sendQ:
+			if m == nil {
+				break loop
+			}
 			_, err := writeMessage(c.writer, m)
 			if err != nil {
-				debug.Printf("mqtt: writeMessage failed: %v, id=%d\n", err, c.id)
+				debug.Printf("mqtt: writeMessage failed: %v (id=%d)\n", err, c.id)
 			}
 		}
 	}

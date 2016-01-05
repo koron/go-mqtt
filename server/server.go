@@ -166,5 +166,6 @@ func (srv *Server) unregister(c *conn) {
 	if !ok || v != c {
 		return
 	}
+	debug.Printf("mqtt: unregister conn: id=%d\n", c.id)
 	delete(srv.conns, c.id)
 }
