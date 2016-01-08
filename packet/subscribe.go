@@ -1,17 +1,44 @@
 package packet
 
+import (
+	"bytes"
+	"fmt"
+)
+
 // Subscribe represents SUBSRIBE packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#subscribe
 type Subscribe struct {
 	Header
-	// TODO: add props for Subscribe.
+	MessageID MessageID
+	Topics    []Topic
 }
 
 var _ Packet = (*Subscribe)(nil)
 
 // Encode returns serialized Subscribe packet.
 func (p *Subscribe) Encode() ([]byte, error) {
-	return nil, nil
+	var (
+		header = &Header{
+			Type: TSubscribe,
+			Dup:  p.Dup,
+			QoS:  p.QoS,
+		}
+		messageID = p.MessageID.bytes()
+		topics    []byte
+	)
+	topics, err := encodeTopics(p.Topics)
+	if err != nil {
+		return nil, err
+	}
+	return encode(header, messageID, topics)
+}
+
+// AddTopic adds a topic to SUBSRIBE packet.
+func (p *Subscribe) AddTopic(topic Topic) {
+	if p.Topics == nil {
+		p.Topics = make([]Topic, 0, 4)
+	}
+	p.Topics = append(p.Topics, topic)
 }
 
 // SubACK represents SUBACK packet.
@@ -38,14 +65,34 @@ func (p *SubACK) Encode() ([]byte, error) {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#unsubscribe
 type Unsubscribe struct {
 	Header
-	// TODO: add props for Unsubscribe.
+	MessageID MessageID
+	Topics    []string
 }
 
 var _ Packet = (*Unsubscribe)(nil)
 
 // Encode returns serialized Unsubscribe packet.
 func (p *Unsubscribe) Encode() ([]byte, error) {
-	return nil, nil
+	var (
+		header = &Header{
+			Type: TUnsubscribe,
+			Dup:  p.Dup,
+			QoS:  p.QoS,
+		}
+		messageID = p.MessageID.bytes()
+		topics    bytes.Buffer
+	)
+	for i, t := range p.Topics {
+		b := encodeString(t)
+		if b == nil {
+			return nil, fmt.Errorf("too long topic name in #%d", i)
+		}
+		_, err := topics.Write(b)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return encode(header, messageID, topics.Bytes())
 }
 
 // UnsubACK represents UNSUBACK packet.
@@ -60,4 +107,29 @@ var _ Packet = (*UnsubACK)(nil)
 // Encode returns serialized UnsubACK packet.
 func (p *UnsubACK) Encode() ([]byte, error) {
 	return encode(&Header{Type: TUnsubACK}, p.MessageID.bytes())
+}
+
+// Topic represents topics to subscribe.
+type Topic struct {
+	Name string
+	QoS  QoS
+}
+
+func encodeTopics(topics []Topic) ([]byte, error) {
+	buf := bytes.Buffer{}
+	for i, t := range topics {
+		n := encodeString(t.Name)
+		if n == nil {
+			return nil, fmt.Errorf("too long topic name in #%d", i)
+		}
+		_, err := buf.Write(n)
+		if err != nil {
+			return nil, err
+		}
+		err = buf.WriteByte(byte(t.QoS & 0x03))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
 }
