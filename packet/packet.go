@@ -21,6 +21,7 @@ func (id MessageID) bytes() []byte {
 	}
 }
 
+// DEPRECATED
 func decodeMessageID(b []byte) MessageID {
 	return MessageID(b[0])<<8 | MessageID(b[1])
 }

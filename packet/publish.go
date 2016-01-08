@@ -23,18 +23,52 @@ func (p *Publish) Encode() ([]byte, error) {
 			Retain: p.Retain,
 		}
 		topicName = encodeString(p.TopicName)
-		messageID = p.MessageID.bytes()
+		messageID []byte
 	)
 	if topicName == nil {
 		return nil, errors.New("too long TopicName")
+	}
+	if p.isMessageIDRequired(header.QoS) {
+		messageID = p.MessageID.bytes()
 	}
 	return encode(header, topicName, messageID, p.Payload)
 }
 
 // Decode deserializes []byte as Publish packet.
 func (p *Publish) Decode(b []byte) error {
-	// TODO: implement me.
+	d := newDecoder(b, TPublish)
+	var (
+		topicName string
+		messageID MessageID
+		payload   []byte
+	)
+	topicName, _ = d.readString()
+	if p.isMessageIDRequired(d.header.QoS) {
+		messageID, _ = d.readPacketID()
+	}
+	payload, err := d.readRemainBytes()
+	if err != nil {
+		if err == errInsufficientRemainBytes {
+			err = errors.New("insufficient payload")
+		}
+		return err
+	}
+	*p = Publish{
+		Header:    d.header,
+		TopicName: topicName,
+		MessageID: messageID,
+		Payload:   payload,
+	}
 	return nil
+}
+
+func (p *Publish) isMessageIDRequired(qos QoS) bool {
+	switch qos {
+	case QAtLeastOnce, QExactlyOnce:
+		return true
+	default:
+		return false
+	}
 }
 
 // PubACK represents PUBACK packet.
