@@ -1,5 +1,7 @@
 package packet
 
+import "fmt"
+
 // Type is the type representing the MQTT packet's message type.
 type Type uint8
 
@@ -188,4 +190,39 @@ func (t Type) Name() string {
 // Flags returns the default flag values for message type.
 func (t Type) Flags() uint8 {
 	return t.desc().Flags
+}
+
+// NewPacket creates a new packet of this type.
+func (t Type) NewPacket() (Packet, error) {
+	switch t {
+	case TConnect:
+		return &Connect{Header: Header{Type: t}}, nil
+	case TConnACK:
+		return &ConnACK{Header: Header{Type: t}}, nil
+	case TPublish:
+		return &Publish{Header: Header{Type: t}}, nil
+	case TPubACK:
+		return &PubACK{Header: Header{Type: t}}, nil
+	case TPubRec:
+		return &PubRec{Header: Header{Type: t}}, nil
+	case TPubRel:
+		return &PubRel{Header: Header{Type: t}}, nil
+	case TPubComp:
+		return &PubComp{Header: Header{Type: t}}, nil
+	case TSubscribe:
+		return &Subscribe{Header: Header{Type: t}}, nil
+	case TSubACK:
+		return &SubACK{Header: Header{Type: t}}, nil
+	case TUnsubscribe:
+		return &Unsubscribe{Header: Header{Type: t}}, nil
+	case TUnsubACK:
+		return &UnsubACK{Header: Header{Type: t}}, nil
+	case TPingReq:
+		return &PingReq{Header: Header{Type: t}}, nil
+	case TPingResp:
+		return &PingResp{Header: Header{Type: t}}, nil
+	case TDisconnect:
+		return &Disconnect{Header: Header{Type: t}}, nil
+	}
+	return nil, fmt.Errorf("not defined type: %d", t)
 }

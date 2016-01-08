@@ -6,6 +6,9 @@ import "math"
 type Packet interface {
 	// Encode serializes packet to []byte.
 	Encode() ([]byte, error)
+
+	// Decode deserializes []byte as an packet.
+	Decode([]byte) error
 }
 
 // MessageID is identifier for packet/message.

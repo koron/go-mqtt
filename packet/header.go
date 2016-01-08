@@ -3,6 +3,7 @@ package packet
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"math"
 )
 
@@ -34,7 +35,7 @@ func encode(h *Header, payloads ...[]byte) ([]byte, error) {
 		rlen += len(payload)
 	}
 	if rlen > math.MaxInt32 {
-		return nil, ErrTooLongPayload
+		return nil, errors.New("too long payload")
 	} else if rlen == 0 {
 		err = buf.WriteByte(0)
 		if err != nil {

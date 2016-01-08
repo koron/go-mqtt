@@ -80,6 +80,12 @@ func (p *Connect) Encode() ([]byte, error) {
 		password)
 }
 
+// Decode deserializes []byte as Connect packet.
+func (p *Connect) Decode(b []byte) error {
+	// TODO: implement me.
+	return nil
+}
+
 // ConnACK represents CONNACK packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#connack
 type ConnACK struct {
@@ -117,6 +123,12 @@ func (p *ConnACK) Encode() ([]byte, error) {
 	return encode(&Header{Type: TConnACK}, []byte{0x00, byte(p.ReturnCode)})
 }
 
+// Decode deserializes []byte as ConnACK packet.
+func (p *ConnACK) Decode(b []byte) error {
+	// TODO: implement me.
+	return nil
+}
+
 // Disconnect represents DISCONNECT packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#disconnect
 type Disconnect struct {
@@ -128,4 +140,10 @@ var _ Packet = (*Disconnect)(nil)
 // Encode returns serialized Disconnect packet.
 func (p *Disconnect) Encode() ([]byte, error) {
 	return encode(&Header{Type: TDisconnect}, nil)
+}
+
+// Decode deserializes []byte as Disconnect packet.
+func (p *Disconnect) Decode(b []byte) error {
+	// TODO: implement me.
+	return nil
 }

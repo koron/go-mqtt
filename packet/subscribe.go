@@ -33,6 +33,12 @@ func (p *Subscribe) Encode() ([]byte, error) {
 	return encode(header, messageID, topics)
 }
 
+// Decode deserializes []byte as Subscribe packet.
+func (p *Subscribe) Decode(b []byte) error {
+	// TODO: implement me.
+	return nil
+}
+
 // AddTopic adds a topic to SUBSRIBE packet.
 func (p *Subscribe) AddTopic(topic Topic) {
 	if p.Topics == nil {
@@ -59,6 +65,12 @@ func (p *SubACK) Encode() ([]byte, error) {
 		b[i] = byte(qos & 0x3)
 	}
 	return encode(&Header{Type: TSubACK}, p.MessageID.bytes(), b)
+}
+
+// Decode deserializes []byte as SubACK packet.
+func (p *SubACK) Decode(b []byte) error {
+	// TODO: implement me.
+	return nil
 }
 
 // Unsubscribe represents UNSUBSCRIBE packet.
@@ -95,6 +107,12 @@ func (p *Unsubscribe) Encode() ([]byte, error) {
 	return encode(header, messageID, topics.Bytes())
 }
 
+// Decode deserializes []byte as Unsubscribe packet.
+func (p *Unsubscribe) Decode(b []byte) error {
+	// TODO: implement me.
+	return nil
+}
+
 // UnsubACK represents UNSUBACK packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#unsuback
 type UnsubACK struct {
@@ -107,6 +125,12 @@ var _ Packet = (*UnsubACK)(nil)
 // Encode returns serialized UnsubACK packet.
 func (p *UnsubACK) Encode() ([]byte, error) {
 	return encode(&Header{Type: TUnsubACK}, p.MessageID.bytes())
+}
+
+// Decode deserializes []byte as UnsubACK packet.
+func (p *UnsubACK) Decode(b []byte) error {
+	// TODO: implement me.
+	return nil
 }
 
 // Topic represents topics to subscribe.

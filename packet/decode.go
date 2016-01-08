@@ -3,6 +3,7 @@ package packet
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 )
 
@@ -53,6 +54,17 @@ func Split(r Reader) ([]byte, error) {
 
 // Decode decodes a Packet from datagram.
 func Decode(b []byte) (Packet, error) {
-	// TODO: decode as one of Packets.
-	return nil, nil
+	if len(b) < 2 {
+		return nil, errors.New("too short []byte")
+	}
+	t := Type(b[0] >> 4 & 0x0f)
+	p, err := t.NewPacket()
+	if err != nil {
+		return nil, err
+	}
+	err = p.Decode(b)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
 }
