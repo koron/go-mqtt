@@ -68,3 +68,61 @@ func Decode(b []byte) (Packet, error) {
 	}
 	return p, nil
 }
+
+func decodeRemain(b []byte) ([]byte, error) {
+	r := bytes.NewReader(b)
+	u, err := binary.ReadUvarint(r)
+	if err != nil {
+		return nil, err
+	}
+	if r.Len() > 4 {
+		return nil, errors.New("too long remain length")
+	}
+	if len(b)-r.Len() != int(u) {
+		return nil, errors.New("unmatch remain length")
+	}
+	return b[r.Len():], nil
+}
+
+var errInsufficientString = errors.New("insufficient string")
+
+func decodeString(r Reader) (string, error) {
+	b1, err := r.ReadByte()
+	if err != nil {
+		return "", err
+	}
+	b2, err := r.ReadByte()
+	if err != nil {
+		if err == io.EOF {
+			err = errInsufficientString
+		}
+		return "", err
+	}
+	l := int(b1)<<8 | int(b2)
+	b := make([]byte, l)
+	n, err := r.Read(b)
+	if err != nil {
+		if err == io.EOF {
+			err = errInsufficientString
+		}
+		return "", err
+	}
+	if n != l {
+		return "", errInsufficientString
+	}
+	return string(b), nil
+}
+
+func decodeStrings(r Reader) ([]string, error) {
+	var v []string
+	for {
+		s, err := decodeString(r)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		v = append(v, s)
+	}
+	return v, nil
+}
