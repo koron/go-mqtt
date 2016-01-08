@@ -53,7 +53,17 @@ func (p *PubACK) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PubACK packet.
 func (p *PubACK) Decode(b []byte) error {
-	// TODO: implement me.
+	if len(b) != 4 {
+		return errors.New("invalid packet length")
+	}
+	if decodeType(b[0]) != TPubACK {
+		return errors.New("type mismatch")
+	}
+	if b[1] != 2 {
+		return errors.New("invalid remain length")
+	}
+	p.Header.decode(b[0])
+	p.MessageID = decodeMessageID(b[2:])
 	return nil
 }
 
@@ -73,7 +83,17 @@ func (p *PubRec) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PubRec packet.
 func (p *PubRec) Decode(b []byte) error {
-	// TODO: implement me.
+	if len(b) != 4 {
+		return errors.New("invalid packet length")
+	}
+	if decodeType(b[0]) != TPubRec {
+		return errors.New("type mismatch")
+	}
+	if b[1] != 2 {
+		return errors.New("invalid remain length")
+	}
+	p.Header.decode(b[0])
+	p.MessageID = decodeMessageID(b[2:])
 	return nil
 }
 
@@ -93,7 +113,17 @@ func (p *PubRel) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PubRel packet.
 func (p *PubRel) Decode(b []byte) error {
-	// TODO: implement me.
+	if len(b) != 4 {
+		return errors.New("invalid packet length")
+	}
+	if decodeType(b[0]) != TPubRel {
+		return errors.New("type mismatch")
+	}
+	if b[1] != 2 {
+		return errors.New("invalid remain length")
+	}
+	p.Header.decode(b[0])
+	p.MessageID = decodeMessageID(b[2:])
 	return nil
 }
 
@@ -113,6 +143,16 @@ func (p *PubComp) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PubComp packet.
 func (p *PubComp) Decode(b []byte) error {
-	// TODO: implement me.
+	if len(b) != 4 {
+		return errors.New("invalid packet length")
+	}
+	if decodeType(b[0]) != TPubComp {
+		return errors.New("type mismatch")
+	}
+	if b[1] != 2 {
+		return errors.New("invalid remain length")
+	}
+	p.Header.decode(b[0])
+	p.MessageID = decodeMessageID(b[2:])
 	return nil
 }

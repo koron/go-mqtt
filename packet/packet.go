@@ -21,6 +21,10 @@ func (id MessageID) bytes() []byte {
 	}
 }
 
+func decodeMessageID(b []byte) MessageID {
+	return MessageID(b[0])<<8 | MessageID(b[1])
+}
+
 func encodeUint16(n uint16) []byte {
 	return []byte{
 		byte(n >> 8 & 0xff),

@@ -1,6 +1,9 @@
 package packet
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 const protocolName = "MQIsdp"
 
@@ -90,7 +93,8 @@ func (p *Connect) Decode(b []byte) error {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#connack
 type ConnACK struct {
 	Header
-	ReturnCode ConnectReturnCode
+	SessionPresent bool
+	ReturnCode     ConnectReturnCode
 }
 
 var _ Packet = (*ConnACK)(nil)
@@ -120,12 +124,30 @@ const (
 
 // Encode returns serialized ConnACK packet.
 func (p *ConnACK) Encode() ([]byte, error) {
-	return encode(&Header{Type: TConnACK}, []byte{0x00, byte(p.ReturnCode)})
+	var flags byte
+	if p.SessionPresent {
+		flags |= 0x01
+	}
+	return encode(&Header{Type: TConnACK}, []byte{flags, byte(p.ReturnCode)})
 }
 
 // Decode deserializes []byte as ConnACK packet.
 func (p *ConnACK) Decode(b []byte) error {
-	// TODO: implement me.
+	if len(b) != 4 {
+		return errors.New("invalid packet length")
+	}
+	if decodeType(b[0]) != TConnACK {
+		return errors.New("type mismatch")
+	}
+	if b[1] != 2 {
+		return errors.New("invalid remain length")
+	}
+	if c := ConnectReturnCode(b[3]); c > ConnectNotAuthorized {
+		return fmt.Errorf("invalid return code: %d", c)
+	}
+	p.Header.decode(b[0])
+	p.SessionPresent = b[2] & 0x01 != 0
+	p.ReturnCode = ConnectReturnCode(b[3])
 	return nil
 }
 
@@ -144,6 +166,15 @@ func (p *Disconnect) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as Disconnect packet.
 func (p *Disconnect) Decode(b []byte) error {
-	// TODO: implement me.
+	if len(b) != 2 {
+		return errors.New("invalid packet length")
+	}
+	if decodeType(b[0]) != TDisconnect {
+		return errors.New("type mismatch")
+	}
+	if b[1] != 0 {
+		return errors.New("invalid remain length")
+	}
+	p.Header.decode(b[0])
 	return nil
 }
