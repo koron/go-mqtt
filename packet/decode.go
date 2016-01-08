@@ -57,7 +57,7 @@ func Decode(b []byte) (Packet, error) {
 	if len(b) < 2 {
 		return nil, errors.New("too short []byte")
 	}
-	t := Type(b[0] >> 4 & 0x0f)
+	t := decodeType(b[0])
 	p, err := t.NewPacket()
 	if err != nil {
 		return nil, err

@@ -170,6 +170,10 @@ var typeUnknownDesc = &typeDesc{
 	Flags: 0,
 }
 
+func decodeType(b byte) Type {
+	return Type(b >> 4 & 0x0f)
+}
+
 func (t Type) desc() *typeDesc {
 	if t > TReserved2 {
 		return typeUnknownDesc

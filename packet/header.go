@@ -62,3 +62,10 @@ func encode(h *Header, payloads ...[]byte) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
+// decode decodes a byte as header except message type.
+func (h *Header) decode(b byte) {
+	h.Dup = b&0x08 != 0
+	h.QoS = QoS(b >> 1 & 0x3)
+	h.Retain = b&0x01 != 0
+}
