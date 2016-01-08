@@ -51,6 +51,9 @@ func encode(h *Header, payloads ...[]byte) ([]byte, error) {
 	}
 	// encode all payloads.
 	for _, payload := range payloads {
+		if payload == nil {
+			continue
+		}
 		_, err = buf.Write(payload)
 		if err != nil {
 			return nil, err

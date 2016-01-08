@@ -1,17 +1,34 @@
 package packet
 
+import "errors"
+
 // Publish represents PUBLISH packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#publish
 type Publish struct {
 	Header
-	// TODO: add props for Publish.
+	TopicName string
+	MessageID MessageID
+	Payload   []byte
 }
 
 var _ Packet = (*Publish)(nil)
 
 // Encode returns serialized Publish packet.
 func (p *Publish) Encode() ([]byte, error) {
-	return nil, nil
+	var (
+		header = &Header{
+			Type:   p.Type,
+			Dup:    p.Dup,
+			QoS:    p.QoS,
+			Retain: p.Retain,
+		}
+		topicName = encodeString(p.TopicName)
+		messageID = p.MessageID.bytes()
+	)
+	if topicName == nil {
+		return nil, errors.New("too long TopicName")
+	}
+	return encode(header, topicName, messageID, p.Payload)
 }
 
 // PubACK represents PUBACK packet.
