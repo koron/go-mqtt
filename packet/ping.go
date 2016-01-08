@@ -17,16 +17,14 @@ func (p *PingReq) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PingReq packet.
 func (p *PingReq) Decode(b []byte) error {
-	if len(b) != 2 {
-		return errors.New("invalid packet length")
-	}
-	if decodeType(b[0]) != TPingReq {
-		return errors.New("type mismatch")
-	}
-	if b[1] != 0 {
+	d := newDecoder(b, TPingReq)
+	l, err := d.remainLen()
+	if err != nil {
+		return err
+	} else if l != 0 {
 		return errors.New("invalid remain length")
 	}
-	p.Header.decode(b[0])
+	*p = PingReq{Header: d.header}
 	return nil
 }
 
@@ -45,15 +43,13 @@ func (p *PingResp) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PingResp packet.
 func (p *PingResp) Decode(b []byte) error {
-	if len(b) != 2 {
-		return errors.New("invalid packet length")
-	}
-	if decodeType(b[0]) != TPingResp {
-		return errors.New("type mismatch")
-	}
-	if b[1] != 0 {
+	d := newDecoder(b, TPingResp)
+	l, err := d.remainLen()
+	if err != nil {
+		return err
+	} else if l != 0 {
 		return errors.New("invalid remain length")
 	}
-	p.Header.decode(b[0])
+	*p = PingResp{Header: d.header}
 	return nil
 }

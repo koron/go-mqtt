@@ -37,6 +37,7 @@ func (p *Subscribe) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as Subscribe packet.
 func (p *Subscribe) Decode(b []byte) error {
+	// TODO: rewrite with newDecoder()
 	if len(b) < 2 {
 		return errors.New("invalid packet length")
 	}
@@ -90,6 +91,7 @@ func (p *SubACK) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as SubACK packet.
 func (p *SubACK) Decode(b []byte) error {
+	// TODO: rewrite with newDecoder()
 	if len(b) < 2 {
 		return errors.New("invalid packet length")
 	}
@@ -179,6 +181,7 @@ func (p *Unsubscribe) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as Unsubscribe packet.
 func (p *Unsubscribe) Decode(b []byte) error {
+	// TODO: rewrite with newDecoder()
 	if len(b) < 2 {
 		return errors.New("invalid packet length")
 	}
@@ -218,17 +221,15 @@ func (p *UnsubACK) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as UnsubACK packet.
 func (p *UnsubACK) Decode(b []byte) error {
-	if len(b) != 4 {
-		return errors.New("invalid packet length")
+	d := newDecoder(b, TUnsubACK)
+	packetID, err := d.readPacketID()
+	if err != nil {
+		return err
 	}
-	if decodeType(b[0]) != TUnsubACK {
-		return errors.New("type mismatch")
+	*p = UnsubACK{
+		Header: d.header,
+		MessageID: packetID,
 	}
-	if b[1] != 2 {
-		return errors.New("invalid remain length")
-	}
-	p.Header.decode(b[0])
-	p.MessageID = decodeMessageID(b[2:])
 	return nil
 }
 

@@ -133,6 +133,7 @@ func (p *ConnACK) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as ConnACK packet.
 func (p *ConnACK) Decode(b []byte) error {
+	// TODO: rewrite with newDecoder()
 	if len(b) != 4 {
 		return errors.New("invalid packet length")
 	}
@@ -166,6 +167,7 @@ func (p *Disconnect) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as Disconnect packet.
 func (p *Disconnect) Decode(b []byte) error {
+	// TODO: rewrite with newDecoder()
 	if len(b) != 2 {
 		return errors.New("invalid packet length")
 	}

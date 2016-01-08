@@ -202,6 +202,13 @@ func newDecoder(b []byte, t Type) *decoder {
 	return &decoder{header: *h, r: r}
 }
 
+func (d *decoder) remainLen() (int, error) {
+	if d.err != nil {
+		return 0, d.err
+	}
+	return d.r.Len(), nil
+}
+
 func (d *decoder) readRemainBytes() ([]byte, error) {
 	if d.err != nil {
 		return nil, d.err
