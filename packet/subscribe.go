@@ -18,14 +18,20 @@ func (p *Subscribe) Encode() ([]byte, error) {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#suback
 type SubACK struct {
 	Header
-	// TODO: add props for SubACK.
+	MessageID        MessageID
+	GrantedQoSLevels []QoS
 }
 
 var _ Packet = (*SubACK)(nil)
 
 // Encode returns serialized SubACK packet.
 func (p *SubACK) Encode() ([]byte, error) {
-	return nil, nil
+	// a vector of granted QoS levels.
+	b := make([]byte, len(p.GrantedQoSLevels))
+	for i, qos := range p.GrantedQoSLevels {
+		b[i] = byte(qos & 0x3)
+	}
+	return encode(&Header{Type: TSubACK}, p.MessageID.bytes(), b)
 }
 
 // Unsubscribe represents UNSUBSCRIBE packet.
@@ -46,12 +52,12 @@ func (p *Unsubscribe) Encode() ([]byte, error) {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#unsuback
 type UnsubACK struct {
 	Header
-	// TODO: add props for UnsubACK.
+	MessageID MessageID
 }
 
 var _ Packet = (*UnsubACK)(nil)
 
 // Encode returns serialized UnsubACK packet.
 func (p *UnsubACK) Encode() ([]byte, error) {
-	return nil, nil
+	return encode(&Header{Type: TUnsubACK}, p.MessageID.bytes())
 }
