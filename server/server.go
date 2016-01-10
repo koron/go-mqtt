@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/koron/go-debug"
-	"github.com/surgemq/message"
+	"github.com/koron/go-mqtt/packet"
 )
 
 var (
@@ -128,11 +128,11 @@ func (srv *Server) newConn(rwc net.Conn) (*conn, error) {
 	return c, nil
 }
 
-func (srv *Server) authenticate(c *conn, m *message.ConnectMessage) error {
+func (srv *Server) authenticate(c *conn, p *packet.Connect) error {
 	if srv.ConnectHandler == nil {
 		return nil
 	}
-	return srv.ConnectHandler(srv, c, m)
+	return srv.ConnectHandler(srv, c, p)
 }
 
 func (srv *Server) register(c *conn) error {

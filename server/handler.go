@@ -1,22 +1,22 @@
 package server
 
-import "github.com/surgemq/message"
+import "github.com/koron/go-mqtt/packet"
 
 // ConnectHandler checks a connection is acceptable or not.
-type ConnectHandler func(srv *Server, conn PreConn, msg *message.ConnectMessage) error
+type ConnectHandler func(srv *Server, conn PreConn, p *packet.Connect) error
 
-// DisconnectedHandler notifies a disconnection.  msg can be nil when
-// disconnected without DISCONNECT message.
-type DisconnectedHandler func(srv *Server, conn DisConn, msg *message.DisconnectMessage) error
+// DisconnectedHandler notifies a disconnection.  p can be nil when
+// disconnected without DISCONNECT packet.
+type DisconnectedHandler func(srv *Server, conn DisConn, p *packet.Disconnect) error
 
-// ReceiveHandler called when receive a MQTT message.
-type ReceiveHandler func(conn Conn, msg message.Message) error
+// ReceiveHandler called when receive a MQTT packet.
+type ReceiveHandler func(conn Conn, p packet.Packet) error
 
-// SentHandler called after sent a MQTT message.
-type SentHandler func(conn Conn, msg message.Message) error
+// SentHandler called after sent a MQTT packet.
+type SentHandler func(conn Conn, p packet.Packet) error
 
-// SubscribleHandler called each topic to subscribe.
-type SubscribleHandler func(conn Conn, topic string, requestedQos byte) (qos byte, err error)
+// SubscribeHandler called each topic to subscribe.
+type SubscribeHandler func(conn Conn, t packet.Topic) (r packet.SubscribeResult, err error)
 
-// PublishedHandler notifies a PUBLISH message.
-type PublishedHandler func(con Conn, msg *message.PublishMessage) error
+// PublishedHandler notifies a PUBLISH packet.
+type PublishedHandler func(con Conn, p *packet.Publish) error

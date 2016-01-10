@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/koron/go-debug"
-	"github.com/surgemq/message"
+	"github.com/koron/go-mqtt/packet"
 )
 
 // PreConn represents half-connected connection.
@@ -21,8 +21,8 @@ type PreConn interface {
 	// SetSentHandler binds SentHandler to connection.
 	SetSentHandler(h SentHandler)
 
-	// SetSubscribeHandler binds SubscribleHandler to connection.
-	SetSubscribeHandler(h SubscribleHandler)
+	// SetSubscribeHandler binds SubscribeHandler to connection.
+	SetSubscribeHandler(h SubscribeHandler)
 
 	// SetPublishedHandler binds PublishedHandler to conn.
 	SetPublishedHandler(h PublishedHandler)
@@ -45,11 +45,11 @@ type Conn interface {
 	// Conn returns corresponding net.Conn.
 	Conn() net.Conn
 
-	// Send sends a raw MQTT message.
-	Send(msg message.Message) error
+	// Send sends a raw MQTT packet.
+	Send(msg packet.Packet) error
 
 	// Publish publishes a message.
-	Publish(topic string, body []byte, qos byte) error
+	Publish(topic string, body []byte, qos packet.QoS) error
 
 	// Close closes a connection.
 	Close() error
@@ -77,14 +77,14 @@ type conn struct {
 	data interface{}
 	rh   ReceiveHandler
 	sh   SentHandler
-	subh SubscribleHandler
+	subh SubscribeHandler
 	pubh PublishedHandler
 
 	wg    sync.WaitGroup
 	quit  chan bool
-	sendQ chan message.Message
+	sendQ chan packet.Packet
 
-	disconnect *message.DisconnectMessage
+	disconnect *packet.Disconnect
 }
 
 var (
@@ -100,7 +100,7 @@ func newConn(srv *Server, rwc net.Conn) *conn {
 		reader: bufio.NewReader(rwc),
 		writer: rwc,
 		quit:   make(chan bool, 1),
-		sendQ:  make(chan message.Message, 1),
+		sendQ:  make(chan packet.Packet, 1),
 	}
 }
 
@@ -139,11 +139,12 @@ func (c *conn) establishConnection() error {
 		writeConnackErrorMessage(c.writer, err)
 		return err
 	}
-	// send connack message.
-	resp := message.NewConnackMessage()
-	resp.SetSessionPresent(true)
-	resp.SetReturnCode(message.ConnectionAccepted)
-	_, err = writeMessage(c.writer, resp)
+	// send connack packet.
+	resp := packet.ConnACK{
+		SessionPresent: true,
+		ReturnCode:     packet.ConnectAccept,
+	}
+	_, err = writeMessage(c.writer, &resp)
 	if err != nil {
 		return err
 	}
@@ -168,45 +169,40 @@ func (c *conn) serve() {
 	c.server.unregister(c)
 }
 
-func (c *conn) processMessage(msg message.Message) error {
-	switch m := msg.(type) {
-	case *message.DisconnectMessage:
-		c.disconnect = m
+func (c *conn) processMessage(p packet.Packet) error {
+	switch p := p.(type) {
+	case *packet.Disconnect:
+		c.disconnect = p
 		c.closeAll()
-	case *message.SubscribeMessage:
-		return c.processSubscribe(m)
-	case *message.PublishMessage:
-		return c.processPublish(m)
+	case *packet.Subscribe:
+		return c.processSubscribe(p)
+	case *packet.Publish:
+		return c.processPublish(p)
 	}
 	return nil
 }
 
-func (c *conn) processSubscribe(req *message.SubscribeMessage) error {
-	topics := req.Topics()
-	qos := req.Qos()
-	rc := make([]byte, 0, len(topics))
-	for i, t := range topics {
-		tqos := qos[i]
+func (c *conn) processSubscribe(req *packet.Subscribe) error {
+	resp := packet.SubACK{
+		MessageID: req.MessageID,
+	}
+	for _, t := range req.Topics {
+		// TODO: fix result determination.
+		r := packet.SubscribeResult(t.RequestedQoS)
 		if c.subh != nil {
-			q, err := c.subh(c, string(t), qos[i])
+			var err error
+			r, err = c.subh(c, t)
 			if err != nil {
-				debug.Printf("mqtt: topic disabled: %s (id=%d)\n", t, c.id)
-				q = message.QosFailure
+				debug.Printf("mqtt: topic disabled: %s (id=%d)\n", t.Filter, c.id)
+				r = packet.SubscribeFailure
 			}
-			tqos = q
 		}
-		rc = append(rc, tqos)
+		resp.AddResult(r)
 	}
-	// send SUBACK
-	resp := message.NewSubackMessage()
-	resp.SetPacketId(req.PacketId())
-	if err := resp.AddReturnCodes(rc); err != nil {
-		return err
-	}
-	return c.Send(resp)
+	return c.Send(&resp)
 }
 
-func (c *conn) processPublish(req *message.PublishMessage) error {
+func (c *conn) processPublish(req *packet.Publish) error {
 	if c.pubh != nil {
 		err := c.pubh(c, req)
 		if err != nil {
@@ -225,7 +221,7 @@ loop:
 			break loop
 		default:
 		}
-		msg, err := readMessage(c.reader)
+		p, err := packet.SplitDecode(c.reader)
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
 				// TODO: exponential backoff sleep.
@@ -236,13 +232,13 @@ loop:
 			break loop
 		}
 		if c.rh != nil {
-			err := c.rh(c, msg)
+			err := c.rh(c, p)
 			if err != nil {
 				debug.Printf("mqtt: ReceiveHandler failed: %v (id=%d)\n", err, c.id)
 				continue loop
 			}
 		}
-		err = c.processMessage(msg)
+		err = c.processMessage(p)
 		if err != nil {
 			debug.Printf("mqtt: processMessage failed: %v (id=%d)\n", err, c.id)
 		}
@@ -288,7 +284,7 @@ func (c *conn) SetSentHandler(h SentHandler) {
 	c.sh = h
 }
 
-func (c *conn) SetSubscribeHandler(h SubscribleHandler) {
+func (c *conn) SetSubscribeHandler(h SubscribeHandler) {
 	c.subh = h
 }
 
@@ -296,18 +292,21 @@ func (c *conn) SetPublishedHandler(h PublishedHandler) {
 	c.pubh = h
 }
 
-func (c *conn) Send(msg message.Message) error {
+func (c *conn) Send(msg packet.Packet) error {
 	// TODO: guard against sending to closed channel.
 	c.sendQ <- msg
 	return nil
 }
 
-func (c *conn) Publish(topic string, body []byte, qos byte) error {
-	msg := message.NewPublishMessage()
-	msg.SetTopic([]byte(topic))
-	msg.SetQoS(qos)
-	msg.SetPayload(body)
-	return c.Send(msg)
+func (c *conn) Publish(topic string, body []byte, qos packet.QoS) error {
+	p := packet.Publish{
+		Header:    packet.Header{
+			QoS: qos,
+		},
+		TopicName: topic,
+		Payload:   body,
+	}
+	return c.Send(&p)
 }
 
 func (c *conn) Server() *Server {
