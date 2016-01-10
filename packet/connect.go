@@ -5,7 +5,12 @@ import (
 	"fmt"
 )
 
-const protocolName = "MQIsdp"
+const (
+	protocolVersion3 = 3
+	protocolName3    = "MQIsdp"
+	protocolVersion4 = 4
+	protocolName4    = "MQTT"
+)
 
 // Connect represents CONNECT packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#connect
@@ -30,6 +35,7 @@ var _ Packet = (*Connect)(nil)
 func (p *Connect) Encode() ([]byte, error) {
 	var (
 		header       = &Header{Type: TConnect}
+		protocolName string
 		clientID     = encodeString(p.ClientID)
 		willTopic    []byte
 		willMessage  []byte
@@ -37,6 +43,14 @@ func (p *Connect) Encode() ([]byte, error) {
 		password     []byte
 		connectFlags byte
 	)
+	switch p.Version {
+	case protocolVersion3:
+		protocolName = protocolName3
+	case protocolVersion4:
+		protocolName = protocolName4
+	default:
+		return nil, errors.New("unsupported protocol version")
+	}
 	if l := len(p.ClientID); l <= 0 || l > 23 {
 		return nil, errors.New("too short/long ClientID")
 	}
@@ -85,7 +99,97 @@ func (p *Connect) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as Connect packet.
 func (p *Connect) Decode(b []byte) error {
-	// TODO: implement me.
+	d, err := newDecoder(b, TConnect)
+	if err != nil {
+		return err
+	}
+	protocolName, err := d.readString()
+	if err != nil {
+		return err
+	}
+	version, err := d.readByte()
+	if err != nil {
+		return err
+	}
+	switch version {
+	case protocolVersion3:
+		if protocolName != protocolName3 {
+			return errors.New("mismatch protocol name and version")
+		}
+	case protocolVersion4:
+		if protocolName != protocolName4 {
+			return errors.New("mismatch protocol name and version")
+		}
+	default:
+		return errors.New("unsupported protocol version")
+	}
+	connectFlags, err := d.readByte()
+	if err != nil {
+		return err
+	}
+	var (
+		usernameFlag = connectFlags&0x80 != 0
+		passwordFlag = connectFlags&0x40 != 0
+		willRetain   = connectFlags&0x20 != 0
+		willQoS      = QoS(connectFlags & 0x18 >> 3)
+		willFlag     = connectFlags&0x04 != 0
+		cleanSession = connectFlags&0x02 != 0
+	)
+	keepAlive, err := d.readUint16()
+	if err != nil {
+		return err
+	}
+	clientID, err := d.readString()
+	if err != nil {
+		return err
+	}
+	var (
+		willTopic   string
+		willMessage string
+		username    *string
+		password    *string
+	)
+	if willFlag {
+		willTopic, err = d.readString()
+		if err != nil {
+			return err
+		}
+		willMessage, err = d.readString()
+		if err != nil {
+			return err
+		}
+	}
+	if usernameFlag {
+		s, err := d.readString()
+		if err != nil {
+			return err
+		}
+		username = &s
+	}
+	if passwordFlag {
+		s, err := d.readString()
+		if err != nil {
+			return err
+		}
+		password = &s
+	}
+	if err := d.finish(); err != nil {
+		return err
+	}
+	*p = Connect{
+		Header:       d.header,
+		ClientID:     clientID,
+		Version:      uint8(version),
+		Username:     username,
+		Password:     password,
+		CleanSession: cleanSession,
+		KeepAlive:    keepAlive,
+		WillFlag:     willFlag,
+		WillQoS:      willQoS,
+		WillRetain:   willRetain,
+		WillTopic:    willTopic,
+		WillMessage:  willMessage,
+	}
 	return nil
 }
 
