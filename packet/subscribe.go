@@ -2,9 +2,7 @@ package packet
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"io"
 )
 
 // Subscribe represents SUBSRIBE packet.
@@ -37,35 +35,31 @@ func (p *Subscribe) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as Subscribe packet.
 func (p *Subscribe) Decode(b []byte) error {
-	// TODO: rewrite with newDecoder()
-	if len(b) < 2 {
-		return errors.New("invalid packet length")
-	}
-	if decodeType(b[0]) != TSubscribe {
-		return errors.New("type mismatch")
-	}
-	data, err := decodeRemain(b[2:])
-	if err != nil {
-		return nil
-	}
-	if len(data) < 2 {
-		return errors.New("too short remain")
-	}
-	topics, err := decodeTopics(bytes.NewReader(data[2:]))
+	d, err := newDecoder(b, TSubscribe)
 	if err != nil {
 		return err
 	}
-	p.Header.decode(b[0])
-	p.MessageID = decodeMessageID(data[0:2])
-	p.Topics = topics
+	packetID, err := d.readPacketID()
+	if err != nil {
+		return err
+	}
+	topics, err := d.readTopics()
+	if err != nil {
+		return err
+	}
+	if err := d.finish(); err != nil {
+		return err
+	}
+	*p = Subscribe{
+		Header:    d.header,
+		MessageID: packetID,
+		Topics:    topics,
+	}
 	return nil
 }
 
 // AddTopic adds a topic to SUBSRIBE packet.
 func (p *Subscribe) AddTopic(topic Topic) {
-	if p.Topics == nil {
-		p.Topics = make([]Topic, 0, 4)
-	}
 	p.Topics = append(p.Topics, topic)
 }
 
@@ -91,40 +85,31 @@ func (p *SubACK) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as SubACK packet.
 func (p *SubACK) Decode(b []byte) error {
-	// TODO: rewrite with newDecoder()
-	if len(b) < 2 {
-		return errors.New("invalid packet length")
-	}
-	if decodeType(b[0]) != TSubACK {
-		return errors.New("type mismatch")
-	}
-	data, err := decodeRemain(b[2:])
+	d, err := newDecoder(b, TSubACK)
 	if err != nil {
-		return nil
+		return err
 	}
-	if len(data) < 2 {
-		return errors.New("too short remain")
+	packetID, err := d.readPacketID()
+	if err != nil {
+		return err
 	}
-	results := make([]SubscribeResult, len(data)-2)
-	for i, d := range data[2:] {
-		switch d {
-		case 0x00, 0x01, 0x02, 0x80:
-			results[i] = SubscribeResult(d)
-		default:
-			return fmt.Errorf("invalid subscribe result: %d", d)
-		}
+	results, err := d.readSubscribeResults()
+	if err != nil {
+		return err
 	}
-	p.Header.decode(b[0])
-	p.MessageID = decodeMessageID(data[0:2])
-	p.Results = results
+	if err := d.finish(); err != nil {
+		return err
+	}
+	*p = SubACK{
+		Header:    d.header,
+		MessageID: packetID,
+		Results:   results,
+	}
 	return nil
 }
 
 // AddResult adds a result of SUBSRIBE to the topic.
 func (p *SubACK) AddResult(r SubscribeResult) {
-	if p.Results == nil {
-		p.Results = make([]SubscribeResult, 0, 4)
-	}
 	p.Results = append(p.Results, r)
 }
 
@@ -181,27 +166,26 @@ func (p *Unsubscribe) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as Unsubscribe packet.
 func (p *Unsubscribe) Decode(b []byte) error {
-	// TODO: rewrite with newDecoder()
-	if len(b) < 2 {
-		return errors.New("invalid packet length")
-	}
-	if decodeType(b[0]) != TUnsubscribe {
-		return errors.New("type mismatch")
-	}
-	data, err := decodeRemain(b[2:])
-	if err != nil {
-		return nil
-	}
-	if len(data) < 2 {
-		return errors.New("too short remain")
-	}
-	topics, err := decodeStrings(bytes.NewReader(data[2:]))
+	d, err := newDecoder(b, TUnsubscribe)
 	if err != nil {
 		return err
 	}
-	p.Header.decode(b[0])
-	p.MessageID = decodeMessageID(data[0:2])
-	p.Topics = topics
+	packetID, err := d.readPacketID()
+	if err != nil {
+		return err
+	}
+	topics, err := d.readStrings()
+	if err != nil {
+		return err
+	}
+	if err := d.finish(); err != nil {
+		return err
+	}
+	*p = Unsubscribe{
+		Header:    d.header,
+		MessageID: packetID,
+		Topics:    topics,
+	}
 	return nil
 }
 
@@ -221,13 +205,19 @@ func (p *UnsubACK) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as UnsubACK packet.
 func (p *UnsubACK) Decode(b []byte) error {
-	d := newDecoder(b, TUnsubACK)
+	d, err := newDecoder(b, TUnsubACK)
+	if err != nil {
+		return err
+	}
 	packetID, err := d.readPacketID()
 	if err != nil {
 		return err
 	}
+	if err := d.finish(); err != nil {
+		return err
+	}
 	*p = UnsubACK{
-		Header: d.header,
+		Header:    d.header,
 		MessageID: packetID,
 	}
 	return nil
@@ -256,33 +246,4 @@ func encodeTopics(topics []Topic) ([]byte, error) {
 		}
 	}
 	return buf.Bytes(), nil
-}
-
-func decodeTopic(r Reader) (*Topic, error) {
-	s, err := decodeString(r)
-	if err == io.EOF {
-		return nil, nil
-	}
-	b, err := r.ReadByte()
-	if err != nil {
-		return nil, err
-	}
-	return &Topic{
-		Filter: s,
-		RequestedQoS: QoS(b),
-	}, nil
-}
-
-func decodeTopics(r Reader) ([]Topic, error) {
-	var v []Topic
-	for {
-		t, err := decodeTopic(r)
-		if err != nil {
-			return nil, err
-		}
-		if t == nil {
-			return v, nil
-		}
-		v = append(v, *t)
-	}
 }

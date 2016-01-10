@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -69,49 +70,97 @@ func Decode(b []byte) (Packet, error) {
 	return p, nil
 }
 
-func remainReader(b []byte) (*bytes.Reader, error) {
+var (
+	errInvalidPacketLength     = errors.New("invalid packet length")
+	errTypeMismatch            = errors.New("type mismatch")
+	errInvalidRemainLength     = errors.New("invalid remain length")
+	errInsufficientRemainBytes = errors.New("insufficient remain bytes")
+	errInsufficientUint16      = errors.New("insufficient uint16")
+	errInsufficientString      = errors.New("insufficient string")
+	errInsufficientPacketID    = errors.New("insufficient PacketID")
+	errUnreadBytes             = errors.New("unread bytes")
+)
+
+type decoder struct {
+	header Header
+	r      *bytes.Reader
+}
+
+func newDecoder(b []byte, t Type) (*decoder, error) {
+	if len(b) < 2 {
+		return nil, errInvalidPacketLength
+	}
+	b0 := b[0]
+	h := Header{
+		Type:   decodeType(b0),
+		Dup:    b0&0x08 != 0,
+		QoS:    QoS(b0 >> 1 & 0x3),
+		Retain: b0&0x01 != 0,
+	}
+	if h.Type != t {
+		return nil, errTypeMismatch
+	}
+	b = b[1:]
 	r := bytes.NewReader(b)
 	u, err := binary.ReadUvarint(r)
 	if err != nil {
 		return nil, err
 	}
-	if len(b)-r.Len() > 4 {
-		return nil, errors.New("too long remain length")
+	if len(b)-r.Len() > 4 || r.Len() != int(u) {
+		return nil, errInvalidRemainLength
 	}
-	if r.Len() != int(u) {
-		return nil, errors.New("unmatch remain length")
-	}
-	return r, nil
+	return &decoder{header: h, r: r}, nil
 }
 
-// DEPRECATED
-func decodeRemain(b []byte) ([]byte, error) {
-	r := bytes.NewReader(b)
-	u, err := binary.ReadUvarint(r)
+func (d *decoder) remainLen() int {
+	return d.r.Len()
+}
+
+func (d *decoder) readByte() (byte, error) {
+	b, err := d.r.ReadByte()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	if r.Len() > 4 {
-		return nil, errors.New("too long remain length")
-	}
-	if len(b)-r.Len() != int(u) {
-		return nil, errors.New("unmatch remain length")
-	}
-	return b[r.Len():], nil
+	return b, nil
 }
 
-var errInsufficientString = errors.New("insufficient string")
+func (d *decoder) readUint16() (uint16, error) {
+	b1, err := d.r.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	b2, err := d.r.ReadByte()
+	if err != nil {
+		if err == io.EOF {
+			err = errInsufficientUint16
+		}
+		return 0, err
+	}
+	return uint16(b1)<<8 | uint16(b2), nil
+}
 
-func decodeString(r Reader) (string, error) {
-	ul, err := decodeUint16(r)
-	if err == errInsufficientUint16 {
-		return "", errInsufficientString
-	} else if err != nil {
-		return "", nil
+func (d *decoder) readPacketID() (MessageID, error) {
+	id, err := d.readUint16()
+	if err != nil {
+		if err == errInsufficientUint16 {
+			err = errInsufficientPacketID
+		}
+		return 0, err
+	}
+	return MessageID(id), nil
+}
+
+func (d *decoder) readString() (string, error) {
+	ul, err := d.readUint16()
+	if err != nil {
+		if err == errInsufficientUint16 {
+			err = errInsufficientString
+		}
+		return "", err
 	}
 	l := int(ul)
 	b := make([]byte, l)
-	n, err := r.Read(b)
+	n, err := d.r.Read(b)
 	if err != nil {
 		if err == io.EOF {
 			err = errInsufficientString
@@ -124,127 +173,80 @@ func decodeString(r Reader) (string, error) {
 	return string(b), nil
 }
 
-func decodeStrings(r Reader) ([]string, error) {
+func (d *decoder) readStrings() ([]string, error) {
 	var v []string
 	for {
-		s, err := decodeString(r)
+		s, err := d.readString()
 		if err == io.EOF {
-			break
+			return v, nil
 		} else if err != nil {
 			return nil, err
 		}
 		v = append(v, s)
 	}
-	return v, nil
 }
 
-var errInsufficientUint16 = errors.New("insufficient uint16")
-
-func decodeUint16(r Reader) (uint16, error) {
-	b1, err := r.ReadByte()
-	if err != nil {
-		return 0, err
+func (d *decoder) readSubscribeResults() ([]SubscribeResult, error) {
+	results := make([]SubscribeResult, 0, d.remainLen())
+	for {
+		b, err := d.readByte()
+		if err == io.EOF {
+			return results, nil
+		} else if err != nil {
+			return nil, err
+		}
+		switch b {
+		case 0x00, 0x01, 0x02, 0x80:
+			results = append(results, SubscribeResult(b))
+		default:
+			return nil, fmt.Errorf("invalid subscribe result: %d", b)
+		}
 	}
-	b2, err := r.ReadByte()
-	if err == io.EOF {
-		return 0, errInsufficientUint16
-	} else if err != nil {
-		return 0, err
-	}
-	return uint16(b1)<<8 | uint16(b2), nil
-}
-
-func decodePacketID(r Reader) (MessageID, error) {
-	u, err := decodeUint16(r)
-	if err == errInsufficientUint16 {
-		return 0, errors.New("insufficient MessageID")
-	} else if err != nil {
-		return 0, err
-	}
-	return MessageID(u), nil
-}
-
-func decodeHeader(b byte) (*Header, error) {
-	return &Header{
-		Type:   decodeType(b),
-		Dup:    b&0x08 != 0,
-		QoS:    QoS(b >> 1 & 0x3),
-		Retain: b&0x01 != 0,
-	}, nil
-}
-
-var (
-	errInvalidPacketLength     = errors.New("invalid packet length")
-	errTypeMismatch            = errors.New("type mismatch")
-	errInsufficientRemainBytes = errors.New("insufficient remain bytes")
-)
-
-type decoder struct {
-	header Header
-	r      *bytes.Reader
-	err    error
-}
-
-func newDecoder(b []byte, t Type) *decoder {
-	if len(b) < 2 {
-		return &decoder{err: errInvalidPacketLength}
-	}
-	h, err := decodeHeader(b[0])
-	if err != nil {
-		return &decoder{err: err}
-	} else if h.Type != t {
-		return &decoder{err: errTypeMismatch}
-	}
-	r, err := remainReader(b[1:])
-	if err != nil {
-		return &decoder{err: err}
-	}
-	return &decoder{header: *h, r: r}
-}
-
-func (d *decoder) remainLen() (int, error) {
-	if d.err != nil {
-		return 0, d.err
-	}
-	return d.r.Len(), nil
 }
 
 func (d *decoder) readRemainBytes() ([]byte, error) {
-	if d.err != nil {
-		return nil, d.err
-	}
 	b := make([]byte, d.r.Len())
 	n, err := d.r.Read(b)
 	if err != nil {
-		d.err = err
 		return nil, err
 	} else if n != len(b) {
-		d.err = errInsufficientRemainBytes
-		return nil, d.err
+		return nil, errInsufficientRemainBytes
 	}
 	return b, nil
 }
 
-func (d *decoder) readPacketID() (MessageID, error) {
-	if d.err != nil {
-		return 0, d.err
+func (d *decoder) readTopic() (*Topic, error) {
+	s, err := d.readString()
+	if err == io.EOF {
+		return nil, nil
 	}
-	id, err := decodePacketID(d.r)
+	b, err := d.readByte()
 	if err != nil {
-		d.err = err
-		return 0, d.err
+		return nil, err
 	}
-	return id, nil
+	return &Topic{
+		Filter:       s,
+		RequestedQoS: QoS(b),
+	}, nil
 }
 
-func (d *decoder) readString() (string, error) {
-	if d.err != nil {
-		return "", d.err
+func (d *decoder) readTopics() ([]Topic, error) {
+	var v []Topic
+	for {
+		t, err := d.readTopic()
+		if err != nil {
+			return nil, err
+		}
+		if t == nil {
+			return v, nil
+		}
+		v = append(v, *t)
 	}
-	s, err := decodeString(d.r)
-	if err != nil {
-		d.err = err
-		return "", d.err
+}
+
+func (d *decoder) finish() error {
+	if d.r.Len() > 0 {
+		return errUnreadBytes
 	}
-	return s, nil
+	return nil
 }

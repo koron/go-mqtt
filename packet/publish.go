@@ -36,21 +36,26 @@ func (p *Publish) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as Publish packet.
 func (p *Publish) Decode(b []byte) error {
-	d := newDecoder(b, TPublish)
-	var (
-		topicName string
-		messageID MessageID
-		payload   []byte
-	)
-	topicName, _ = d.readString()
+	d, err := newDecoder(b, TPublish)
+	if err != nil {
+		return err
+	}
+	topicName, err := d.readString()
+	if err != nil {
+		return err
+	}
+	var messageID MessageID
 	if p.isMessageIDRequired(d.header.QoS) {
-		messageID, _ = d.readPacketID()
+		messageID, err = d.readPacketID()
+		if err != nil {
+			return err
+		}
 	}
 	payload, err := d.readRemainBytes()
 	if err != nil {
-		if err == errInsufficientRemainBytes {
-			err = errors.New("insufficient payload")
-		}
+		return err
+	}
+	if err := d.finish(); err != nil {
 		return err
 	}
 	*p = Publish{
@@ -87,13 +92,19 @@ func (p *PubACK) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PubACK packet.
 func (p *PubACK) Decode(b []byte) error {
-	d := newDecoder(b, TPubACK)
+	d, err := newDecoder(b, TPubACK)
+	if err != nil {
+		return err
+	}
 	packetID, err := d.readPacketID()
 	if err != nil {
 		return err
 	}
+	if err := d.finish(); err != nil {
+		return err
+	}
 	*p = PubACK{
-		Header: d.header,
+		Header:    d.header,
 		MessageID: packetID,
 	}
 	return nil
@@ -115,13 +126,19 @@ func (p *PubRec) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PubRec packet.
 func (p *PubRec) Decode(b []byte) error {
-	d := newDecoder(b, TPubRec)
+	d, err := newDecoder(b, TPubRec)
+	if err != nil {
+		return err
+	}
 	packetID, err := d.readPacketID()
 	if err != nil {
 		return err
 	}
+	if err := d.finish(); err != nil {
+		return err
+	}
 	*p = PubRec{
-		Header: d.header,
+		Header:    d.header,
 		MessageID: packetID,
 	}
 	return nil
@@ -143,13 +160,19 @@ func (p *PubRel) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PubRel packet.
 func (p *PubRel) Decode(b []byte) error {
-	d := newDecoder(b, TPubRel)
+	d, err := newDecoder(b, TPubRel)
+	if err != nil {
+		return err
+	}
 	packetID, err := d.readPacketID()
 	if err != nil {
 		return err
 	}
+	if err := d.finish(); err != nil {
+		return err
+	}
 	*p = PubRel{
-		Header: d.header,
+		Header:    d.header,
 		MessageID: packetID,
 	}
 	return nil
@@ -171,13 +194,19 @@ func (p *PubComp) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as PubComp packet.
 func (p *PubComp) Decode(b []byte) error {
-	d := newDecoder(b, TPubComp)
+	d, err := newDecoder(b, TPubComp)
+	if err != nil {
+		return err
+	}
 	packetID, err := d.readPacketID()
 	if err != nil {
 		return err
 	}
+	if err := d.finish(); err != nil {
+		return err
+	}
 	*p = PubComp{
-		Header: d.header,
+		Header:    d.header,
 		MessageID: packetID,
 	}
 	return nil

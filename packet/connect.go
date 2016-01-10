@@ -133,22 +133,31 @@ func (p *ConnACK) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as ConnACK packet.
 func (p *ConnACK) Decode(b []byte) error {
-	// TODO: rewrite with newDecoder()
-	if len(b) != 4 {
-		return errors.New("invalid packet length")
+	d, err := newDecoder(b, TConnACK)
+	if err != nil {
+		return err
 	}
-	if decodeType(b[0]) != TConnACK {
-		return errors.New("type mismatch")
+	f, err := d.readByte()
+	if err != nil {
+		return err
 	}
-	if b[1] != 2 {
-		return errors.New("invalid remain length")
+	sessionPresent := f&0x01 != 0
+	c, err := d.readByte()
+	if err != nil {
+		return err
 	}
-	if c := ConnectReturnCode(b[3]); c > ConnectNotAuthorized {
+	returnCode := ConnectReturnCode(c)
+	if returnCode > ConnectNotAuthorized {
 		return fmt.Errorf("invalid return code: %d", c)
 	}
-	p.Header.decode(b[0])
-	p.SessionPresent = b[2] & 0x01 != 0
-	p.ReturnCode = ConnectReturnCode(b[3])
+	if err := d.finish(); err != nil {
+		return err
+	}
+	*p = ConnACK{
+		Header:         d.header,
+		SessionPresent: sessionPresent,
+		ReturnCode:     returnCode,
+	}
 	return nil
 }
 
@@ -167,16 +176,15 @@ func (p *Disconnect) Encode() ([]byte, error) {
 
 // Decode deserializes []byte as Disconnect packet.
 func (p *Disconnect) Decode(b []byte) error {
-	// TODO: rewrite with newDecoder()
-	if len(b) != 2 {
-		return errors.New("invalid packet length")
+	d, err := newDecoder(b, TDisconnect)
+	if err != nil {
+		return err
 	}
-	if decodeType(b[0]) != TDisconnect {
-		return errors.New("type mismatch")
+	if err := d.finish(); err != nil {
+		return err
 	}
-	if b[1] != 0 {
-		return errors.New("invalid remain length")
+	*p = Disconnect{
+		Header: d.header,
 	}
-	p.Header.decode(b[0])
 	return nil
 }
