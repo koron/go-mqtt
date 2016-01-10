@@ -128,9 +128,9 @@ func (srv *Server) newConn(rwc net.Conn) (*conn, error) {
 	return c, nil
 }
 
-func (srv *Server) authenticate(c *conn, p *packet.Connect) error {
+func (srv *Server) authenticate(c *conn, p *packet.Connect) packet.ConnectReturnCode {
 	if srv.ConnectHandler == nil {
-		return nil
+		return packet.ConnectAccept
 	}
 	return srv.ConnectHandler(srv, c, p)
 }

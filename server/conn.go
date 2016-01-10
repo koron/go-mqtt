@@ -110,6 +110,26 @@ func (c *conn) closeAll() {
 	c.rwc.Close()
 }
 
+func (c *conn) writePacket(p packet.Packet) (int, error) {
+	b, err := p.Encode()
+	if err != nil {
+		return 0, err
+	}
+	return c.writer.Write(b)
+}
+
+func (c *conn) readConnectPacket() (*packet.Connect, error) {
+	b, err := packet.Split(c.reader)
+	if err != nil {
+		return nil, err
+	}
+	p := packet.Connect{}
+	if err := p.Decode(b); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
 func (c *conn) ID() ConnID {
 	return c.id
 }
@@ -129,22 +149,19 @@ func (c *conn) Close() error {
 }
 
 func (c *conn) establishConnection() error {
-	req, err := readConnectMessage(c.reader)
+	req, err := c.readConnectPacket()
 	if err != nil {
-		writeConnackErrorMessage(c.writer, err)
+		c.writePacket(&packet.ConnACK{
+			ReturnCode: packet.ConnectServerUnavailable,
+		})
 		return err
 	}
-	err = c.server.authenticate(c, req)
-	if err != nil {
-		writeConnackErrorMessage(c.writer, err)
-		return err
-	}
+	rc := c.server.authenticate(c, req)
 	// send connack packet.
-	resp := packet.ConnACK{
-		SessionPresent: true,
-		ReturnCode:     packet.ConnectAccept,
-	}
-	_, err = writeMessage(c.writer, &resp)
+	_, err = c.writePacket(&packet.ConnACK{
+		SessionPresent: rc == packet.ConnectAccept,
+		ReturnCode:     rc,
+	})
 	if err != nil {
 		return err
 	}
@@ -252,17 +269,17 @@ loop:
 		select {
 		case <-c.quit:
 			break loop
-		case m := <-c.sendQ:
-			if m == nil {
+		case p := <-c.sendQ:
+			if p == nil {
 				break loop
 			}
-			_, err := writeMessage(c.writer, m)
+			_, err := c.writePacket(p)
 			if err != nil {
 				debug.Printf("mqtt: writeMessage failed: %v (id=%d)\n", err, c.id)
 				continue loop
 			}
 			if c.sh != nil {
-				err := c.sh(c, m)
+				err := c.sh(c, p)
 				if err != nil {
 					debug.Printf("mqtt: SentHandler failed %v (id=%d)\n", err, c.id)
 				}
@@ -300,7 +317,7 @@ func (c *conn) Send(msg packet.Packet) error {
 
 func (c *conn) Publish(topic string, body []byte, qos packet.QoS) error {
 	p := packet.Publish{
-		Header:    packet.Header{
+		Header: packet.Header{
 			QoS: qos,
 		},
 		TopicName: topic,

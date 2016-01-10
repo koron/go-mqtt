@@ -3,7 +3,7 @@ package server
 import "github.com/koron/go-mqtt/packet"
 
 // ConnectHandler checks a connection is acceptable or not.
-type ConnectHandler func(srv *Server, conn PreConn, p *packet.Connect) error
+type ConnectHandler func(srv *Server, conn PreConn, p *packet.Connect) packet.ConnectReturnCode
 
 // DisconnectedHandler notifies a disconnection.  p can be nil when
 // disconnected without DISCONNECT packet.
