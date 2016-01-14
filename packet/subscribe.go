@@ -9,8 +9,8 @@ import (
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#subscribe
 type Subscribe struct {
 	Header
-	MessageID MessageID
-	Topics    []Topic
+	PacketID ID
+	Topics   []Topic
 }
 
 var _ Packet = (*Subscribe)(nil)
@@ -23,14 +23,14 @@ func (p *Subscribe) Encode() ([]byte, error) {
 			Dup:  p.Dup,
 			QoS:  p.QoS,
 		}
-		messageID = p.MessageID.bytes()
-		topics    []byte
+		packetID = p.PacketID.bytes()
+		topics   []byte
 	)
 	topics, err := encodeTopics(p.Topics)
 	if err != nil {
 		return nil, err
 	}
-	return encode(header, messageID, topics)
+	return encode(header, packetID, topics)
 }
 
 // Decode deserializes []byte as Subscribe packet.
@@ -51,9 +51,9 @@ func (p *Subscribe) Decode(b []byte) error {
 		return err
 	}
 	*p = Subscribe{
-		Header:    d.header,
-		MessageID: packetID,
-		Topics:    topics,
+		Header:   d.header,
+		PacketID: packetID,
+		Topics:   topics,
 	}
 	return nil
 }
@@ -67,8 +67,8 @@ func (p *Subscribe) AddTopic(topic Topic) {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#suback
 type SubACK struct {
 	Header
-	MessageID MessageID
-	Results   []SubscribeResult
+	PacketID ID
+	Results  []SubscribeResult
 }
 
 var _ Packet = (*SubACK)(nil)
@@ -80,7 +80,7 @@ func (p *SubACK) Encode() ([]byte, error) {
 	for i, r := range p.Results {
 		b[i] = byte(r)
 	}
-	return encode(&Header{Type: TSubACK}, p.MessageID.bytes(), b)
+	return encode(&Header{Type: TSubACK}, p.PacketID.bytes(), b)
 }
 
 // Decode deserializes []byte as SubACK packet.
@@ -101,9 +101,9 @@ func (p *SubACK) Decode(b []byte) error {
 		return err
 	}
 	*p = SubACK{
-		Header:    d.header,
-		MessageID: packetID,
-		Results:   results,
+		Header:   d.header,
+		PacketID: packetID,
+		Results:  results,
 	}
 	return nil
 }
@@ -134,8 +134,8 @@ const (
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#unsubscribe
 type Unsubscribe struct {
 	Header
-	MessageID MessageID
-	Topics    []string
+	PacketID ID
+	Topics   []string
 }
 
 var _ Packet = (*Unsubscribe)(nil)
@@ -148,8 +148,8 @@ func (p *Unsubscribe) Encode() ([]byte, error) {
 			Dup:  p.Dup,
 			QoS:  p.QoS,
 		}
-		messageID = p.MessageID.bytes()
-		topics    bytes.Buffer
+		packetID = p.PacketID.bytes()
+		topics   bytes.Buffer
 	)
 	for i, t := range p.Topics {
 		b := encodeString(t)
@@ -161,7 +161,7 @@ func (p *Unsubscribe) Encode() ([]byte, error) {
 			return nil, err
 		}
 	}
-	return encode(header, messageID, topics.Bytes())
+	return encode(header, packetID, topics.Bytes())
 }
 
 // Decode deserializes []byte as Unsubscribe packet.
@@ -182,9 +182,9 @@ func (p *Unsubscribe) Decode(b []byte) error {
 		return err
 	}
 	*p = Unsubscribe{
-		Header:    d.header,
-		MessageID: packetID,
-		Topics:    topics,
+		Header:   d.header,
+		PacketID: packetID,
+		Topics:   topics,
 	}
 	return nil
 }
@@ -193,14 +193,14 @@ func (p *Unsubscribe) Decode(b []byte) error {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#unsuback
 type UnsubACK struct {
 	Header
-	MessageID MessageID
+	PacketID ID
 }
 
 var _ Packet = (*UnsubACK)(nil)
 
 // Encode returns serialized UnsubACK packet.
 func (p *UnsubACK) Encode() ([]byte, error) {
-	return encode(&Header{Type: TUnsubACK}, p.MessageID.bytes())
+	return encode(&Header{Type: TUnsubACK}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as UnsubACK packet.
@@ -217,8 +217,8 @@ func (p *UnsubACK) Decode(b []byte) error {
 		return err
 	}
 	*p = UnsubACK{
-		Header:    d.header,
-		MessageID: packetID,
+		Header:   d.header,
+		PacketID: packetID,
 	}
 	return nil
 }
