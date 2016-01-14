@@ -11,19 +11,14 @@ type Packet interface {
 	Decode([]byte) error
 }
 
-// MessageID is identifier for packet/message.
-type MessageID uint16
+// ID is identifier for packet/message.
+type ID uint16
 
-func (id MessageID) bytes() []byte {
+func (id ID) bytes() []byte {
 	return []byte{
 		byte(id >> 8 & 0xff),
 		byte(id >> 0 & 0xff),
 	}
-}
-
-// DEPRECATED
-func decodeMessageID(b []byte) MessageID {
-	return MessageID(b[0])<<8 | MessageID(b[1])
 }
 
 func encodeUint16(n uint16) []byte {

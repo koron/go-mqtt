@@ -7,7 +7,7 @@ import "errors"
 type Publish struct {
 	Header
 	TopicName string
-	MessageID MessageID
+	PacketID  ID
 	Payload   []byte
 }
 
@@ -23,15 +23,15 @@ func (p *Publish) Encode() ([]byte, error) {
 			Retain: p.Retain,
 		}
 		topicName = encodeString(p.TopicName)
-		messageID []byte
+		packetID  []byte
 	)
 	if topicName == nil {
 		return nil, errors.New("too long TopicName")
 	}
-	if p.isMessageIDRequired(header.QoS) {
-		messageID = p.MessageID.bytes()
+	if p.isPacketIDRequired(header.QoS) {
+		packetID = p.PacketID.bytes()
 	}
-	return encode(header, topicName, messageID, p.Payload)
+	return encode(header, topicName, packetID, p.Payload)
 }
 
 // Decode deserializes []byte as Publish packet.
@@ -44,9 +44,9 @@ func (p *Publish) Decode(b []byte) error {
 	if err != nil {
 		return err
 	}
-	var messageID MessageID
-	if p.isMessageIDRequired(d.header.QoS) {
-		messageID, err = d.readPacketID()
+	var packetID ID
+	if p.isPacketIDRequired(d.header.QoS) {
+		packetID, err = d.readPacketID()
 		if err != nil {
 			return err
 		}
@@ -61,13 +61,13 @@ func (p *Publish) Decode(b []byte) error {
 	*p = Publish{
 		Header:    d.header,
 		TopicName: topicName,
-		MessageID: messageID,
+		PacketID:  packetID,
 		Payload:   payload,
 	}
 	return nil
 }
 
-func (p *Publish) isMessageIDRequired(qos QoS) bool {
+func (p *Publish) isPacketIDRequired(qos QoS) bool {
 	switch qos {
 	case QAtLeastOnce, QExactlyOnce:
 		return true
@@ -80,14 +80,14 @@ func (p *Publish) isMessageIDRequired(qos QoS) bool {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#puback
 type PubACK struct {
 	Header
-	MessageID MessageID
+	PacketID ID
 }
 
 var _ Packet = (*PubACK)(nil)
 
 // Encode returns serialized PubACK packet.
 func (p *PubACK) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPubACK}, p.MessageID.bytes())
+	return encode(&Header{Type: TPubACK}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as PubACK packet.
@@ -104,8 +104,8 @@ func (p *PubACK) Decode(b []byte) error {
 		return err
 	}
 	*p = PubACK{
-		Header:    d.header,
-		MessageID: packetID,
+		Header:   d.header,
+		PacketID: packetID,
 	}
 	return nil
 }
@@ -114,14 +114,14 @@ func (p *PubACK) Decode(b []byte) error {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pubrec
 type PubRec struct {
 	Header
-	MessageID MessageID
+	PacketID ID
 }
 
 var _ Packet = (*PubRec)(nil)
 
 // Encode returns serialized PubRec packet.
 func (p *PubRec) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPubRec}, p.MessageID.bytes())
+	return encode(&Header{Type: TPubRec}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as PubRec packet.
@@ -138,8 +138,8 @@ func (p *PubRec) Decode(b []byte) error {
 		return err
 	}
 	*p = PubRec{
-		Header:    d.header,
-		MessageID: packetID,
+		Header:   d.header,
+		PacketID: packetID,
 	}
 	return nil
 }
@@ -148,14 +148,17 @@ func (p *PubRec) Decode(b []byte) error {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pubrel
 type PubRel struct {
 	Header
-	MessageID MessageID
+	PacketID ID
 }
 
 var _ Packet = (*PubRel)(nil)
 
 // Encode returns serialized PubRel packet.
 func (p *PubRel) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPubRel}, p.MessageID.bytes())
+	return encode(&Header{
+		Type: TPubRel,
+		QoS:  QAtLeastOnce,
+	}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as PubRel packet.
@@ -172,8 +175,8 @@ func (p *PubRel) Decode(b []byte) error {
 		return err
 	}
 	*p = PubRel{
-		Header:    d.header,
-		MessageID: packetID,
+		Header:   d.header,
+		PacketID: packetID,
 	}
 	return nil
 }
@@ -182,14 +185,14 @@ func (p *PubRel) Decode(b []byte) error {
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pubcomp
 type PubComp struct {
 	Header
-	MessageID MessageID
+	PacketID ID
 }
 
 var _ Packet = (*PubComp)(nil)
 
 // Encode returns serialized PubComp packet.
 func (p *PubComp) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPubComp}, p.MessageID.bytes())
+	return encode(&Header{Type: TPubComp}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as PubComp packet.
@@ -206,8 +209,8 @@ func (p *PubComp) Decode(b []byte) error {
 		return err
 	}
 	*p = PubComp{
-		Header:    d.header,
-		MessageID: packetID,
+		Header:   d.header,
+		PacketID: packetID,
 	}
 	return nil
 }

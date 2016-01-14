@@ -139,7 +139,7 @@ func (d *decoder) readUint16() (uint16, error) {
 	return uint16(b1)<<8 | uint16(b2), nil
 }
 
-func (d *decoder) readPacketID() (MessageID, error) {
+func (d *decoder) readPacketID() (ID, error) {
 	id, err := d.readUint16()
 	if err != nil {
 		if err == errInsufficientUint16 {
@@ -147,7 +147,7 @@ func (d *decoder) readPacketID() (MessageID, error) {
 		}
 		return 0, err
 	}
-	return MessageID(id), nil
+	return ID(id), nil
 }
 
 func (d *decoder) readString() (string, error) {
