@@ -20,8 +20,7 @@ func (p *Subscribe) Encode() ([]byte, error) {
 	var (
 		header = &Header{
 			Type: TSubscribe,
-			Dup:  p.Dup,
-			QoS:  p.QoS,
+			QoS:  QAtLeastOnce,
 		}
 		packetID = p.PacketID.bytes()
 		topics   []byte
@@ -145,8 +144,7 @@ func (p *Unsubscribe) Encode() ([]byte, error) {
 	var (
 		header = &Header{
 			Type: TUnsubscribe,
-			Dup:  p.Dup,
-			QoS:  p.QoS,
+			QoS:  QAtLeastOnce,
 		}
 		packetID = p.PacketID.bytes()
 		topics   bytes.Buffer
