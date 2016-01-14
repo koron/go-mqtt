@@ -75,3 +75,53 @@ func TestConnect1(t *testing.T) {
 	}
 	compareBytes(t, b, data)
 }
+
+func TestConnACK1(t *testing.T) {
+	data := []byte{0x20, 0x02, 0x01, 0x05}
+	p := ConnACK{}
+	err := p.Decode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.SessionPresent {
+		t.Errorf("unexpected SessionPresent: %v", p.SessionPresent)
+	}
+	if p.ReturnCode != ConnectNotAuthorized {
+		t.Errorf("unexpected ReturnCode: %v", p.ReturnCode)
+	}
+
+	// encode test.
+	b, err := p.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareBytes(t, b, data)
+}
+
+func TestDisconnect1(t *testing.T) {
+	data := []byte{0xe0, 0x00}
+	p := Disconnect{}
+	err := p.Decode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Type != TDisconnect {
+		t.Errorf("unexpected Type: %v", p.Type)
+	}
+	if p.Dup {
+		t.Errorf("unexpected Dup: %v", p.Dup)
+	}
+	if p.QoS != QAtMostOnce {
+		t.Errorf("unexpected QoS: %v", p.QoS)
+	}
+	if p.Retain {
+		t.Errorf("unexpected Retain: %v", p.Retain)
+	}
+
+	// encode test.
+	b, err := p.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	compareBytes(t, b, data)
+}
