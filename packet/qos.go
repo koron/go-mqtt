@@ -16,3 +16,18 @@ const (
 	// QReserved is reseved.
 	QReserved
 )
+
+func (q QoS) String() string {
+	switch q {
+	case QAtMostOnce:
+		return "[QoS 0 - at most once]"
+	case QAtLeastOnce:
+		return "[QoS 1 - at least once]"
+	case QExactlyOnce:
+		return "[QoS 2 - exactly once]"
+	case QReserved:
+		return "[QoS 3 - reserved]"
+	default:
+		return "[QoS UNDEFINED]"
+	}
+}

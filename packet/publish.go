@@ -155,7 +155,10 @@ var _ Packet = (*PubRel)(nil)
 
 // Encode returns serialized PubRel packet.
 func (p *PubRel) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPubRel}, p.PacketID.bytes())
+	return encode(&Header{
+		Type: TPubRel,
+		QoS:  QAtLeastOnce,
+	}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as PubRel packet.
