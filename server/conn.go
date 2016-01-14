@@ -201,7 +201,7 @@ func (c *conn) processMessage(p packet.Packet) error {
 
 func (c *conn) processSubscribe(req *packet.Subscribe) error {
 	resp := packet.SubACK{
-		MessageID: req.MessageID,
+		PacketID: req.PacketID,
 	}
 	for _, t := range req.Topics {
 		// TODO: fix result determination.
