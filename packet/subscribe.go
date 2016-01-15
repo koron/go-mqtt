@@ -2,13 +2,13 @@ package packet
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 )
 
 // Subscribe represents SUBSRIBE packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#subscribe
 type Subscribe struct {
-	Header
 	PacketID ID
 	Topics   []Topic
 }
@@ -38,6 +38,9 @@ func (p *Subscribe) Decode(b []byte) error {
 	if err != nil {
 		return err
 	}
+	if d.header.QoS != QAtLeastOnce || d.header.Dup || d.header.Retain {
+		return errors.New("invalid flags for Subscribe packet")
+	}
 	packetID, err := d.readPacketID()
 	if err != nil {
 		return err
@@ -50,7 +53,6 @@ func (p *Subscribe) Decode(b []byte) error {
 		return err
 	}
 	*p = Subscribe{
-		Header:   d.header,
 		PacketID: packetID,
 		Topics:   topics,
 	}
@@ -65,7 +67,6 @@ func (p *Subscribe) AddTopic(topic Topic) {
 // SubACK represents SUBACK packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#suback
 type SubACK struct {
-	Header
 	PacketID ID
 	Results  []SubscribeResult
 }
@@ -100,7 +101,6 @@ func (p *SubACK) Decode(b []byte) error {
 		return err
 	}
 	*p = SubACK{
-		Header:   d.header,
 		PacketID: packetID,
 		Results:  results,
 	}
@@ -132,7 +132,6 @@ const (
 // Unsubscribe represents UNSUBSCRIBE packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#unsubscribe
 type Unsubscribe struct {
-	Header
 	PacketID ID
 	Topics   []string
 }
@@ -168,6 +167,9 @@ func (p *Unsubscribe) Decode(b []byte) error {
 	if err != nil {
 		return err
 	}
+	if d.header.QoS != QAtLeastOnce || d.header.Dup || d.header.Retain {
+		return errors.New("invalid flags for Unsubscribe packet")
+	}
 	packetID, err := d.readPacketID()
 	if err != nil {
 		return err
@@ -180,7 +182,6 @@ func (p *Unsubscribe) Decode(b []byte) error {
 		return err
 	}
 	*p = Unsubscribe{
-		Header:   d.header,
 		PacketID: packetID,
 		Topics:   topics,
 	}
@@ -190,7 +191,6 @@ func (p *Unsubscribe) Decode(b []byte) error {
 // UnsubACK represents UNSUBACK packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#unsuback
 type UnsubACK struct {
-	Header
 	PacketID ID
 }
 
@@ -215,7 +215,6 @@ func (p *UnsubACK) Decode(b []byte) error {
 		return err
 	}
 	*p = UnsubACK{
-		Header:   d.header,
 		PacketID: packetID,
 	}
 	return nil

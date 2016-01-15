@@ -5,7 +5,9 @@ import "errors"
 // Publish represents PUBLISH packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#publish
 type Publish struct {
-	Header
+	Dup       bool
+	QoS       QoS
+	Retain    bool
 	TopicName string
 	PacketID  ID
 	Payload   []byte
@@ -17,7 +19,7 @@ var _ Packet = (*Publish)(nil)
 func (p *Publish) Encode() ([]byte, error) {
 	var (
 		header = &Header{
-			Type:   p.Type,
+			Type:   TPublish,
 			Dup:    p.Dup,
 			QoS:    p.QoS,
 			Retain: p.Retain,
@@ -59,7 +61,9 @@ func (p *Publish) Decode(b []byte) error {
 		return err
 	}
 	*p = Publish{
-		Header:    d.header,
+		Dup:       d.header.Dup,
+		QoS:       d.header.QoS,
+		Retain:    d.header.Retain,
 		TopicName: topicName,
 		PacketID:  packetID,
 		Payload:   payload,
@@ -79,7 +83,6 @@ func (p *Publish) isPacketIDRequired(qos QoS) bool {
 // PubACK represents PUBACK packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#puback
 type PubACK struct {
-	Header
 	PacketID ID
 }
 
@@ -104,7 +107,6 @@ func (p *PubACK) Decode(b []byte) error {
 		return err
 	}
 	*p = PubACK{
-		Header:   d.header,
 		PacketID: packetID,
 	}
 	return nil
@@ -113,7 +115,6 @@ func (p *PubACK) Decode(b []byte) error {
 // PubRec represents PUBREC packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pubrec
 type PubRec struct {
-	Header
 	PacketID ID
 }
 
@@ -138,7 +139,6 @@ func (p *PubRec) Decode(b []byte) error {
 		return err
 	}
 	*p = PubRec{
-		Header:   d.header,
 		PacketID: packetID,
 	}
 	return nil
@@ -147,7 +147,6 @@ func (p *PubRec) Decode(b []byte) error {
 // PubRel represents PUBREL packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pubrel
 type PubRel struct {
-	Header
 	PacketID ID
 }
 
@@ -167,6 +166,9 @@ func (p *PubRel) Decode(b []byte) error {
 	if err != nil {
 		return err
 	}
+	if d.header.QoS != QAtLeastOnce || d.header.Dup || d.header.Retain {
+		return errors.New("invalid flags for PubRel packet")
+	}
 	packetID, err := d.readPacketID()
 	if err != nil {
 		return err
@@ -175,7 +177,6 @@ func (p *PubRel) Decode(b []byte) error {
 		return err
 	}
 	*p = PubRel{
-		Header:   d.header,
 		PacketID: packetID,
 	}
 	return nil
@@ -184,7 +185,6 @@ func (p *PubRel) Decode(b []byte) error {
 // PubComp represents PUBCOMP packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pubcomp
 type PubComp struct {
-	Header
 	PacketID ID
 }
 
@@ -209,7 +209,6 @@ func (p *PubComp) Decode(b []byte) error {
 		return err
 	}
 	*p = PubComp{
-		Header:   d.header,
 		PacketID: packetID,
 	}
 	return nil

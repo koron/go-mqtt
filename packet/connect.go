@@ -15,7 +15,6 @@ const (
 // Connect represents CONNECT packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#connect
 type Connect struct {
-	Header
 	ClientID     string
 	Version      uint8
 	Username     *string
@@ -177,7 +176,6 @@ func (p *Connect) Decode(b []byte) error {
 		return err
 	}
 	*p = Connect{
-		Header:       d.header,
 		ClientID:     clientID,
 		Version:      uint8(version),
 		Username:     username,
@@ -196,7 +194,6 @@ func (p *Connect) Decode(b []byte) error {
 // ConnACK represents CONNACK packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#connack
 type ConnACK struct {
-	Header
 	SessionPresent bool
 	ReturnCode     ConnectReturnCode
 }
@@ -258,7 +255,6 @@ func (p *ConnACK) Decode(b []byte) error {
 		return err
 	}
 	*p = ConnACK{
-		Header:         d.header,
 		SessionPresent: sessionPresent,
 		ReturnCode:     returnCode,
 	}
@@ -268,7 +264,6 @@ func (p *ConnACK) Decode(b []byte) error {
 // Disconnect represents DISCONNECT packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#disconnect
 type Disconnect struct {
-	Header
 }
 
 var _ Packet = (*Disconnect)(nil)
@@ -287,8 +282,6 @@ func (p *Disconnect) Decode(b []byte) error {
 	if err := d.finish(); err != nil {
 		return err
 	}
-	*p = Disconnect{
-		Header: d.header,
-	}
+	*p = Disconnect{}
 	return nil
 }

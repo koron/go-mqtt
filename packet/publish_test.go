@@ -87,9 +87,6 @@ func TestPubRel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.QoS != QAtLeastOnce {
-		t.Errorf("unexpected QoS: %v", p.QoS)
-	}
 	if p.PacketID != 7 {
 		t.Errorf("unexpected PacketID: %d", p.PacketID)
 	}

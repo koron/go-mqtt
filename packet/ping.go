@@ -3,7 +3,6 @@ package packet
 // PingReq represents PINGREQ packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pingreq
 type PingReq struct {
-	Header
 }
 
 var _ Packet = (*PingReq)(nil)
@@ -22,14 +21,13 @@ func (p *PingReq) Decode(b []byte) error {
 	if err := d.finish(); err != nil {
 		return err
 	}
-	*p = PingReq{Header: d.header}
+	*p = PingReq{}
 	return nil
 }
 
 // PingResp represents PINGRESP packet.
 // http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pingresp
 type PingResp struct {
-	Header
 }
 
 var _ Packet = (*PingResp)(nil)
@@ -48,6 +46,6 @@ func (p *PingResp) Decode(b []byte) error {
 	if err := d.finish(); err != nil {
 		return err
 	}
-	*p = PingResp{Header: d.header}
+	*p = PingResp{}
 	return nil
 }
