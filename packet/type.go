@@ -200,33 +200,33 @@ func (t Type) Flags() uint8 {
 func (t Type) NewPacket() (Packet, error) {
 	switch t {
 	case TConnect:
-		return &Connect{Header: Header{Type: t}}, nil
+		return &Connect{}, nil
 	case TConnACK:
-		return &ConnACK{Header: Header{Type: t}}, nil
+		return &ConnACK{}, nil
 	case TPublish:
-		return &Publish{Header: Header{Type: t}}, nil
+		return &Publish{}, nil
 	case TPubACK:
-		return &PubACK{Header: Header{Type: t}}, nil
+		return &PubACK{}, nil
 	case TPubRec:
-		return &PubRec{Header: Header{Type: t}}, nil
+		return &PubRec{}, nil
 	case TPubRel:
-		return &PubRel{Header: Header{Type: t}}, nil
+		return &PubRel{}, nil
 	case TPubComp:
-		return &PubComp{Header: Header{Type: t}}, nil
+		return &PubComp{}, nil
 	case TSubscribe:
-		return &Subscribe{Header: Header{Type: t}}, nil
+		return &Subscribe{}, nil
 	case TSubACK:
-		return &SubACK{Header: Header{Type: t}}, nil
+		return &SubACK{}, nil
 	case TUnsubscribe:
-		return &Unsubscribe{Header: Header{Type: t}}, nil
+		return &Unsubscribe{}, nil
 	case TUnsubACK:
-		return &UnsubACK{Header: Header{Type: t}}, nil
+		return &UnsubACK{}, nil
 	case TPingReq:
-		return &PingReq{Header: Header{Type: t}}, nil
+		return &PingReq{}, nil
 	case TPingResp:
-		return &PingResp{Header: Header{Type: t}}, nil
+		return &PingResp{}, nil
 	case TDisconnect:
-		return &Disconnect{Header: Header{Type: t}}, nil
+		return &Disconnect{}, nil
 	}
 	return nil, fmt.Errorf("not defined type: %d", t)
 }

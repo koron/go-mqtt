@@ -82,7 +82,7 @@ var (
 )
 
 type decoder struct {
-	header Header
+	header header
 	r      *bytes.Reader
 }
 
@@ -91,7 +91,7 @@ func newDecoder(b []byte, t Type) (*decoder, error) {
 		return nil, errInvalidPacketLength
 	}
 	b0 := b[0]
-	h := Header{
+	h := header{
 		Type:   decodeType(b0),
 		Dup:    b0&0x08 != 0,
 		QoS:    QoS(b0 >> 1 & 0x3),

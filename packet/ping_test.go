@@ -9,18 +9,6 @@ func TestPingReq(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Type != TPingReq {
-		t.Errorf("unexpected Type: %v", p.Type)
-	}
-	if p.Dup {
-		t.Errorf("unexpected Dup: %v", p.Dup)
-	}
-	if p.QoS != QAtMostOnce {
-		t.Errorf("unexpected QoS: %v", p.QoS)
-	}
-	if p.Retain {
-		t.Errorf("unexpected Retain: %v", p.Retain)
-	}
 
 	// encode test.
 	b, err := p.Encode()
@@ -36,18 +24,6 @@ func TestPingResp(t *testing.T) {
 	err := p.Decode(data)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if p.Type != TPingResp {
-		t.Errorf("unexpected Type: %v", p.Type)
-	}
-	if p.Dup {
-		t.Errorf("unexpected Dup: %v", p.Dup)
-	}
-	if p.QoS != QAtMostOnce {
-		t.Errorf("unexpected QoS: %v", p.QoS)
-	}
-	if p.Retain {
-		t.Errorf("unexpected Retain: %v", p.Retain)
 	}
 
 	// encode test.

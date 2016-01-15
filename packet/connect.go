@@ -13,9 +13,7 @@ const (
 )
 
 // Connect represents CONNECT packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#connect
 type Connect struct {
-	Header
 	ClientID     string
 	Version      uint8
 	Username     *string
@@ -34,7 +32,7 @@ var _ Packet = (*Connect)(nil)
 // Encode returns serialized Connect packet.
 func (p *Connect) Encode() ([]byte, error) {
 	var (
-		header       = &Header{Type: TConnect}
+		header       = &header{Type: TConnect}
 		protocolName string
 		clientID     = encodeString(p.ClientID)
 		willTopic    []byte
@@ -177,7 +175,6 @@ func (p *Connect) Decode(b []byte) error {
 		return err
 	}
 	*p = Connect{
-		Header:       d.header,
 		ClientID:     clientID,
 		Version:      uint8(version),
 		Username:     username,
@@ -194,9 +191,7 @@ func (p *Connect) Decode(b []byte) error {
 }
 
 // ConnACK represents CONNACK packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#connack
 type ConnACK struct {
-	Header
 	SessionPresent bool
 	ReturnCode     ConnectReturnCode
 }
@@ -232,7 +227,7 @@ func (p *ConnACK) Encode() ([]byte, error) {
 	if p.SessionPresent {
 		flags |= 0x01
 	}
-	return encode(&Header{Type: TConnACK}, []byte{flags, byte(p.ReturnCode)})
+	return encode(&header{Type: TConnACK}, []byte{flags, byte(p.ReturnCode)})
 }
 
 // Decode deserializes []byte as ConnACK packet.
@@ -258,7 +253,6 @@ func (p *ConnACK) Decode(b []byte) error {
 		return err
 	}
 	*p = ConnACK{
-		Header:         d.header,
 		SessionPresent: sessionPresent,
 		ReturnCode:     returnCode,
 	}
@@ -266,16 +260,14 @@ func (p *ConnACK) Decode(b []byte) error {
 }
 
 // Disconnect represents DISCONNECT packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#disconnect
 type Disconnect struct {
-	Header
 }
 
 var _ Packet = (*Disconnect)(nil)
 
 // Encode returns serialized Disconnect packet.
 func (p *Disconnect) Encode() ([]byte, error) {
-	return encode(&Header{Type: TDisconnect}, nil)
+	return encode(&header{Type: TDisconnect}, nil)
 }
 
 // Decode deserializes []byte as Disconnect packet.
@@ -287,8 +279,6 @@ func (p *Disconnect) Decode(b []byte) error {
 	if err := d.finish(); err != nil {
 		return err
 	}
-	*p = Disconnect{
-		Header: d.header,
-	}
+	*p = Disconnect{}
 	return nil
 }
