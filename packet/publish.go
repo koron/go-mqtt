@@ -3,7 +3,6 @@ package packet
 import "errors"
 
 // Publish represents PUBLISH packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#publish
 type Publish struct {
 	Dup       bool
 	QoS       QoS
@@ -81,7 +80,6 @@ func (p *Publish) isPacketIDRequired(qos QoS) bool {
 }
 
 // PubACK represents PUBACK packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#puback
 type PubACK struct {
 	PacketID ID
 }
@@ -113,7 +111,6 @@ func (p *PubACK) Decode(b []byte) error {
 }
 
 // PubRec represents PUBREC packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pubrec
 type PubRec struct {
 	PacketID ID
 }
@@ -145,7 +142,6 @@ func (p *PubRec) Decode(b []byte) error {
 }
 
 // PubRel represents PUBREL packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pubrel
 type PubRel struct {
 	PacketID ID
 }
@@ -183,7 +179,6 @@ func (p *PubRel) Decode(b []byte) error {
 }
 
 // PubComp represents PUBCOMP packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pubcomp
 type PubComp struct {
 	PacketID ID
 }

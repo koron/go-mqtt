@@ -1,7 +1,6 @@
 package packet
 
 // PingReq represents PINGREQ packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pingreq
 type PingReq struct {
 }
 
@@ -26,7 +25,6 @@ func (p *PingReq) Decode(b []byte) error {
 }
 
 // PingResp represents PINGRESP packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#pingresp
 type PingResp struct {
 }
 

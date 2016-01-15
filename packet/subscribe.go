@@ -7,7 +7,6 @@ import (
 )
 
 // Subscribe represents SUBSRIBE packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#subscribe
 type Subscribe struct {
 	PacketID ID
 	Topics   []Topic
@@ -65,7 +64,6 @@ func (p *Subscribe) AddTopic(topic Topic) {
 }
 
 // SubACK represents SUBACK packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#suback
 type SubACK struct {
 	PacketID ID
 	Results  []SubscribeResult
@@ -130,7 +128,6 @@ const (
 )
 
 // Unsubscribe represents UNSUBSCRIBE packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#unsubscribe
 type Unsubscribe struct {
 	PacketID ID
 	Topics   []string
@@ -189,7 +186,6 @@ func (p *Unsubscribe) Decode(b []byte) error {
 }
 
 // UnsubACK represents UNSUBACK packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#unsuback
 type UnsubACK struct {
 	PacketID ID
 }

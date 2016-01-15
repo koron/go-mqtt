@@ -13,7 +13,6 @@ const (
 )
 
 // Connect represents CONNECT packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#connect
 type Connect struct {
 	ClientID     string
 	Version      uint8
@@ -192,7 +191,6 @@ func (p *Connect) Decode(b []byte) error {
 }
 
 // ConnACK represents CONNACK packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#connack
 type ConnACK struct {
 	SessionPresent bool
 	ReturnCode     ConnectReturnCode
@@ -262,7 +260,6 @@ func (p *ConnACK) Decode(b []byte) error {
 }
 
 // Disconnect represents DISCONNECT packet.
-// http://public.dhe.ibm.com/software/dw/webservices/ws-mqtt/mqtt-v3r1.html#disconnect
 type Disconnect struct {
 }
 
