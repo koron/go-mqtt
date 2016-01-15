@@ -17,7 +17,7 @@ var _ Packet = (*Publish)(nil)
 // Encode returns serialized Publish packet.
 func (p *Publish) Encode() ([]byte, error) {
 	var (
-		header = &Header{
+		header = &header{
 			Type:   TPublish,
 			Dup:    p.Dup,
 			QoS:    p.QoS,
@@ -88,7 +88,7 @@ var _ Packet = (*PubACK)(nil)
 
 // Encode returns serialized PubACK packet.
 func (p *PubACK) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPubACK}, p.PacketID.bytes())
+	return encode(&header{Type: TPubACK}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as PubACK packet.
@@ -119,7 +119,7 @@ var _ Packet = (*PubRec)(nil)
 
 // Encode returns serialized PubRec packet.
 func (p *PubRec) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPubRec}, p.PacketID.bytes())
+	return encode(&header{Type: TPubRec}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as PubRec packet.
@@ -150,7 +150,7 @@ var _ Packet = (*PubRel)(nil)
 
 // Encode returns serialized PubRel packet.
 func (p *PubRel) Encode() ([]byte, error) {
-	return encode(&Header{
+	return encode(&header{
 		Type: TPubRel,
 		QoS:  QAtLeastOnce,
 	}, p.PacketID.bytes())
@@ -187,7 +187,7 @@ var _ Packet = (*PubComp)(nil)
 
 // Encode returns serialized PubComp packet.
 func (p *PubComp) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPubComp}, p.PacketID.bytes())
+	return encode(&header{Type: TPubComp}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as PubComp packet.

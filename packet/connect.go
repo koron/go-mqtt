@@ -32,7 +32,7 @@ var _ Packet = (*Connect)(nil)
 // Encode returns serialized Connect packet.
 func (p *Connect) Encode() ([]byte, error) {
 	var (
-		header       = &Header{Type: TConnect}
+		header       = &header{Type: TConnect}
 		protocolName string
 		clientID     = encodeString(p.ClientID)
 		willTopic    []byte
@@ -227,7 +227,7 @@ func (p *ConnACK) Encode() ([]byte, error) {
 	if p.SessionPresent {
 		flags |= 0x01
 	}
-	return encode(&Header{Type: TConnACK}, []byte{flags, byte(p.ReturnCode)})
+	return encode(&header{Type: TConnACK}, []byte{flags, byte(p.ReturnCode)})
 }
 
 // Decode deserializes []byte as ConnACK packet.
@@ -267,7 +267,7 @@ var _ Packet = (*Disconnect)(nil)
 
 // Encode returns serialized Disconnect packet.
 func (p *Disconnect) Encode() ([]byte, error) {
-	return encode(&Header{Type: TDisconnect}, nil)
+	return encode(&header{Type: TDisconnect}, nil)
 }
 
 // Decode deserializes []byte as Disconnect packet.

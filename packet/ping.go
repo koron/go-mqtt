@@ -8,7 +8,7 @@ var _ Packet = (*PingReq)(nil)
 
 // Encode returns serialized PingReq packet.
 func (p *PingReq) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPingReq}, nil)
+	return encode(&header{Type: TPingReq}, nil)
 }
 
 // Decode deserializes []byte as PingReq packet.
@@ -32,7 +32,7 @@ var _ Packet = (*PingResp)(nil)
 
 // Encode returns serialized PingResp packet.
 func (p *PingResp) Encode() ([]byte, error) {
-	return encode(&Header{Type: TPingResp}, nil)
+	return encode(&header{Type: TPingResp}, nil)
 }
 
 // Decode deserializes []byte as PingResp packet.

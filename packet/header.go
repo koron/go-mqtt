@@ -7,15 +7,15 @@ import (
 	"math"
 )
 
-// Header represents common properties for all types of packet.
-type Header struct {
+// header represents common properties for all types of packet.
+type header struct {
 	Type   Type
 	Dup    bool
 	QoS    QoS
 	Retain bool
 }
 
-func encode(h *Header, payloads ...[]byte) ([]byte, error) {
+func encode(h *header, payloads ...[]byte) ([]byte, error) {
 	buf := bytes.Buffer{}
 	// encode byte1
 	b := byte(h.Type)&0x0f<<4 + byte(h.QoS)&0x03<<1
@@ -64,7 +64,7 @@ func encode(h *Header, payloads ...[]byte) ([]byte, error) {
 }
 
 // decode decodes a byte as header except message type.
-func (h *Header) decode(b byte) {
+func (h *header) decode(b byte) {
 	h.Dup = b&0x08 != 0
 	h.QoS = QoS(b >> 1 & 0x3)
 	h.Retain = b&0x01 != 0

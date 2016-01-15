@@ -17,7 +17,7 @@ var _ Packet = (*Subscribe)(nil)
 // Encode returns serialized Subscribe packet.
 func (p *Subscribe) Encode() ([]byte, error) {
 	var (
-		header = &Header{
+		header = &header{
 			Type: TSubscribe,
 			QoS:  QAtLeastOnce,
 		}
@@ -78,7 +78,7 @@ func (p *SubACK) Encode() ([]byte, error) {
 	for i, r := range p.Results {
 		b[i] = byte(r)
 	}
-	return encode(&Header{Type: TSubACK}, p.PacketID.bytes(), b)
+	return encode(&header{Type: TSubACK}, p.PacketID.bytes(), b)
 }
 
 // Decode deserializes []byte as SubACK packet.
@@ -138,7 +138,7 @@ var _ Packet = (*Unsubscribe)(nil)
 // Encode returns serialized Unsubscribe packet.
 func (p *Unsubscribe) Encode() ([]byte, error) {
 	var (
-		header = &Header{
+		header = &header{
 			Type: TUnsubscribe,
 			QoS:  QAtLeastOnce,
 		}
@@ -194,7 +194,7 @@ var _ Packet = (*UnsubACK)(nil)
 
 // Encode returns serialized UnsubACK packet.
 func (p *UnsubACK) Encode() ([]byte, error) {
-	return encode(&Header{Type: TUnsubACK}, p.PacketID.bytes())
+	return encode(&header{Type: TUnsubACK}, p.PacketID.bytes())
 }
 
 // Decode deserializes []byte as UnsubACK packet.
