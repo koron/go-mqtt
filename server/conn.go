@@ -317,9 +317,7 @@ func (c *conn) Send(msg packet.Packet) error {
 
 func (c *conn) Publish(topic string, body []byte, qos packet.QoS) error {
 	p := packet.Publish{
-		Header: packet.Header{
-			QoS: qos,
-		},
+		QoS:       qos,
 		TopicName: topic,
 		Payload:   body,
 	}
