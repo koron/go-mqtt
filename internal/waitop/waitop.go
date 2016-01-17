@@ -5,26 +5,21 @@ import (
 	"sync"
 )
 
-type AsyncOp func() error
-
-type WaitOp interface {
-	Do(AsyncOp) (interface{}, error)
-	Fulfill(interface{})
-	Reject(error)
-	Close()
-}
-
-type waitOp struct {
-	c   *sync.Cond
-	s   state
-	v   interface{} // return value
-	err error
-}
-
 var (
+	// ErrAlreadyDoing indicates WaitOp is executing already.
 	ErrAlreadyDoing = errors.New("already doing")
+
+	// ErrTerminated indicates WaitOp have been closed without Fulfill() or
+	// Rejected().
 	ErrTerminated = errors.New("terminated")
+
+	// ErrNotDoing indicates asynchronous operation is not started yet.
+	ErrNotDoing = errors.New("not started")
 )
+
+// AsyncOp starts asynchronous operation.
+// When AsyncOp is finished Fulfill() or Reject() should be called.
+type AsyncOp func() error
 
 type state int
 
@@ -34,13 +29,24 @@ const (
 	done
 )
 
-func New() WaitOp {
-	return &waitOp{
+// WaitOp provides wait for exclusive asynchronous operation.
+type WaitOp struct {
+	c   *sync.Cond
+	s   state
+	v   interface{} // return value
+	err error
+}
+
+// New creates a WaitOp instance.
+func New() *WaitOp {
+	return &WaitOp{
 		c: sync.NewCond(new(sync.Mutex)),
 	}
 }
 
-func (w *waitOp) Do(f AsyncOp) (interface{}, error) {
+// Do starts asynchronous operation if it's not started yet.
+// ErrAlreadyDoing and ErrTerminated will be retured.
+func (w *WaitOp) Do(f AsyncOp) (interface{}, error) {
 	// mark as doing.
 	w.c.L.Lock()
 	if w.s != idle {
@@ -50,7 +56,10 @@ func (w *waitOp) Do(f AsyncOp) (interface{}, error) {
 	w.s, w.v, w.err = doing, nil, nil
 	w.c.L.Unlock()
 	// start async operation.
-	err := f()
+	var err error
+	if f != nil {
+		err = f()
+	}
 	if err != nil {
 		w.c.L.Lock()
 		w.s, w.v, w.err = idle, nil, nil
@@ -68,25 +77,36 @@ func (w *waitOp) Do(f AsyncOp) (interface{}, error) {
 	return v, err
 }
 
-func (w *waitOp) done(v interface{}, err error) {
+func (w *WaitOp) done(v interface{}, err error) error {
+	rerr := ErrNotDoing
 	w.c.L.Lock()
 	if w.s == doing {
+		rerr = nil
 		w.s = done
 		w.v = v
 		w.err = err
 		w.c.Signal()
 	}
 	w.c.L.Unlock()
+	return rerr
 }
 
-func (w *waitOp) Fulfill(retval interface{}) {
-	w.done(retval, nil)
+// Fulfill should be called with result value if asynchronous operation is
+// finished successfully.
+// When WaitOp is not started yet, this returns ErrNotDoing.
+func (w *WaitOp) Fulfill(retval interface{}) error {
+	return w.done(retval, nil)
 }
 
-func (w *waitOp) Reject(err error) {
-	w.done(nil, err)
+// Reject should be called if asynchronous operation is failed.
+// When WaitOp is not started yet, this returns ErrNotDoing.
+func (w *WaitOp) Reject(err error) error {
+	return w.done(nil, err)
 }
 
-func (w *waitOp) Close() {
+// Close closes WaitOp.  When executing WaitOp is closed, it returns
+// ErrTerminated.
+func (w *WaitOp) Close() error {
 	w.done(nil, ErrTerminated)
+	return nil
 }

@@ -47,7 +47,7 @@ type client struct {
 	r    packet.Reader
 	sl   sync.Mutex // send (conn) lock
 
-	ping waitop.WaitOp
+	ping *waitop.WaitOp
 
 	id uint32
 }
