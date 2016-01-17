@@ -43,11 +43,10 @@ func (p *Param) connectPacket() *packet.Connect {
 	return p.options().connectPacket(p.ID)
 }
 
-func (p *Param) newReadWriter(c net.Conn) *bufio.ReadWriter {
+func (p *Param) newPacketReader(c net.Conn) packet.Reader {
 	// TODO: apply timeout configuration.
 	r := bufio.NewReader(c)
-	w := bufio.NewWriter(c)
-	return bufio.NewReadWriter(r, w)
+	return r
 }
 
 // Options represents connect options
@@ -140,7 +139,7 @@ func Connect(p Param, df DisconnectedFunc) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	rw := p.newReadWriter(c)
+	r := p.newPacketReader(c)
 
 	// send CONNECT packet.
 	bc, err := p.connectPacket().Encode()
@@ -155,7 +154,7 @@ func Connect(p Param, df DisconnectedFunc) (Client, error) {
 	}
 
 	// receive CONNACK packet.
-	rp, err := packet.SplitDecode(rw)
+	rp, err := packet.SplitDecode(r)
 	if err != nil {
 		c.Close()
 		return nil, err
@@ -171,7 +170,7 @@ func Connect(p Param, df DisconnectedFunc) (Client, error) {
 
 	cl := &client{
 		conn: c,
-		rw:   rw,
+		r:    r,
 	}
 	cl.start()
 	return cl, nil
