@@ -201,7 +201,6 @@ func (c *client) stopRaw(reason error) error {
 	}
 	err := c.conn.Close()
 	c.conn = nil
-	c.r = nil
 	c.ping.Close()
 	c.subsc.Close()
 	c.unsub.Close()
@@ -275,6 +274,7 @@ loop:
 	if c.df != nil {
 		c.df(c.derr, c.p)
 	}
+	c.r = nil
 }
 
 func (c *client) publish0(retain bool, topic string, msg []byte) error {
