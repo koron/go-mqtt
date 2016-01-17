@@ -1,6 +1,13 @@
 package client
 
-import "github.com/koron/go-mqtt/packet"
+import (
+	"bufio"
+	"errors"
+	"net"
+	"net/url"
+
+	"github.com/koron/go-mqtt/packet"
+)
 
 // Param represents connection parameters for MQTT client.
 type Param struct {
@@ -21,6 +28,28 @@ func (p *Param) options() *Options {
 	return p.Options
 }
 
+func (p *Param) addr() string {
+	if p.Addr == "" {
+		return "tcp://127.0.0.1:1883"
+	}
+	return p.Addr
+}
+
+func (p *Param) url() (*url.URL, error) {
+	return url.Parse(p.addr())
+}
+
+func (p *Param) connectPacket() *packet.Connect {
+	return p.options().connectPacket(p.ID)
+}
+
+func (p *Param) newReadWriter(c net.Conn) *bufio.ReadWriter {
+	// TODO: apply timeout configuration.
+	r := bufio.NewReader(c)
+	w := bufio.NewWriter(c)
+	return bufio.NewReadWriter(r, w)
+}
+
 // Options represents connect options
 type Options struct {
 	Version      uint8   // MQTT's protocol version 3 or 4 (fallback to 4)
@@ -29,8 +58,6 @@ type Options struct {
 	CleanSession bool
 	KeepAlive    uint16
 	Will         *Will
-
-	// TODO: add other parameters.
 }
 
 func (o *Options) version() uint8 {
@@ -105,6 +132,47 @@ type DisconnectedFunc func(reason error, param Param)
 
 // Connect connects to MQTT broker and returns a Client.
 func Connect(p Param, df DisconnectedFunc) (Client, error) {
-	// TODO:
-	return nil, nil
+	u, err := p.url()
+	if err != nil {
+		return nil, err
+	}
+	c, err := net.Dial(u.Scheme, u.Host)
+	if err != nil {
+		return nil, err
+	}
+	rw := p.newReadWriter(c)
+
+	// send CONNECT packet.
+	bc, err := p.connectPacket().Encode()
+	if err != nil {
+		c.Close()
+		return nil, err
+	}
+	_, err = c.Write(bc)
+	if err != nil {
+		c.Close()
+		return nil, err
+	}
+
+	// receive CONNACK packet.
+	rp, err := packet.SplitDecode(rw)
+	if err != nil {
+		c.Close()
+		return nil, err
+	}
+	ack, ok := rp.(*packet.ConnACK)
+	if !ok {
+		c.Close()
+		return nil, errors.New("received non CONNACK")
+	}
+	if ack.ReturnCode != packet.ConnectAccept {
+		return nil, ack.ReturnCode
+	}
+
+	cl := &client{
+		conn: c,
+		rw:   rw,
+	}
+	cl.start()
+	return cl, nil
 }

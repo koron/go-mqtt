@@ -221,6 +221,25 @@ const (
 	ConnectNotAuthorized
 )
 
+func (c ConnectReturnCode) Error() string {
+	switch c {
+	case ConnectAccept:
+		return "accepted"
+	case ConnectUnacceptableProtocolVersion:
+		return "unacceptable protocol version"
+	case ConnectIdentifierRejected:
+		return "identifier rejected"
+	case ConnectServerUnavailable:
+		return "server unavailable"
+	case ConnectBadUserNameOrPassword:
+		return "bad username or password"
+	case ConnectNotAuthorized:
+		return "not authorized"
+	default:
+		return "unknown connect return code"
+	}
+}
+
 // Encode returns serialized ConnACK packet.
 func (p *ConnACK) Encode() ([]byte, error) {
 	var flags byte

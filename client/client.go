@@ -1,6 +1,11 @@
 package client
 
-import "github.com/koron/go-mqtt/packet"
+import (
+	"bufio"
+	"net"
+
+	"github.com/koron/go-mqtt/packet"
+)
 
 // Client is a MQTT client.
 type Client interface {
@@ -30,7 +35,10 @@ type Client interface {
 
 // client implements a simple MQTT client.
 type client struct {
+	conn net.Conn
+	rw   *bufio.ReadWriter
 	// TODO:
+
 	nextID packet.ID
 }
 
@@ -69,4 +77,8 @@ func (c *client) PeekMessage() bool {
 func (c *client) ReadMessage() (*Message, error) {
 	// TODO:
 	return nil, nil
+}
+
+func (c *client) start() {
+	// TODO:
 }
