@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -47,7 +48,9 @@ type client struct {
 	r    packet.Reader
 	sl   sync.Mutex // send (conn) lock
 
-	ping *waitop.WaitOp
+	ping  *waitop.WaitOp
+	subsc *waitop.WaitOp
+	unsub *waitop.WaitOp
 
 	id uint32
 }
@@ -68,6 +71,8 @@ func (c *client) Disconnect(force bool) error {
 	c.conn = nil
 	c.r = nil
 	c.ping.Close()
+	c.subsc.Close()
+	c.unsub.Close()
 	c.sl.Unlock()
 	return err
 }
@@ -80,12 +85,65 @@ func (c *client) Ping() error {
 }
 
 func (c *client) Subscribe(topics []Topic) error {
-	// TODO:
+	var id packet.ID
+	r, err := c.subsc.Do(func() error {
+		array, err := packetTopics(topics)
+		if err != nil {
+			return err
+		}
+		id = c.emitID()
+		return c.encodeAndSend(&packet.Subscribe{
+			PacketID: id,
+			Topics:   array,
+		})
+	})
+	if err != nil {
+		return err
+	}
+	p, ok := r.(*packet.SubACK)
+	if !ok {
+		panic(fmt.Sprintf("unexpected response: %v", r))
+	}
+	se := &SubscribeError{
+		MismatchPacketID:    id != p.PacketID,
+		MismatchResultCount: len(topics) != len(p.Results),
+		RequestedQoS:        make([]QoS, len(topics)),
+		ResultQoS:           make([]QoS, len(p.Results)),
+	}
+	for i, t := range topics {
+		se.RequestedQoS[i] = t.QoS
+	}
+	for i, r := range p.Results {
+		se.ResultQoS[i] = toQoS(r)
+	}
+	if se.hasErrors() {
+		return se
+	}
 	return nil
 }
 
 func (c *client) Unsubscribe(topics []string) error {
-	// TODO:
+	var id packet.ID
+	r, err := c.unsub.Do(func() error {
+		id = c.emitID()
+		return c.encodeAndSend(&packet.Unsubscribe{
+			PacketID: id,
+			Topics: topics,
+		})
+	})
+	if err != nil {
+		return err
+	}
+	p, ok := r.(*packet.UnsubACK)
+	if !ok {
+		panic(fmt.Sprintf("unexpected response: %v", r))
+	}
+	ue := &UnsubscribeError{
+		MismatchPacketID: id != p.PacketID,
+	}
+	if ue.hasErrors() {
+		return ue
+	}
 	return nil
 }
 
@@ -100,18 +158,19 @@ func (c *client) Publish(qos QoS, retain bool, topic string, msg []byte) error {
 }
 
 func (c *client) PeekMessage() bool {
-	// TODO:
+	// TODO: impl PeekMessage
 	return false
 }
 
 func (c *client) ReadMessage() (*Message, error) {
-	// TODO:
+	// TODO: impl ReadMessage
 	return nil, nil
 }
 
 func (c *client) start() {
 	c.ping = waitop.New()
-	// FIXME: initialize client's other fields
+	c.subsc = waitop.New()
+	c.unsub = waitop.New()
 	go c.recvLoop()
 }
 
@@ -120,7 +179,7 @@ func (c *client) stop(err error) {
 }
 
 func (c *client) logTemporaryError(err error) {
-	// TODO:
+	// TODO: logTemporaryError
 }
 
 func (c *client) send(b []byte) error {
@@ -156,11 +215,11 @@ loop:
 		}
 		switch p := rp.(type) {
 		case *packet.Publish:
-			// TODO:
+			// TODO: store published message.
 		case *packet.SubACK:
-			// TODO:
+			c.subsc.Fulfill(p)
 		case *packet.UnsubACK:
-			// TODO:
+			c.unsub.Fulfill(p)
 		case *packet.PingResp:
 			c.ping.Fulfill(p)
 		default:
@@ -186,6 +245,10 @@ func (c *client) publish0(retain bool, topic string, msg []byte) error {
 }
 
 func (c *client) emitID() packet.ID {
-	n := atomic.AddUint32(&c.id, 1)
-	return packet.ID(n)
+	for {
+		n := uint16(atomic.AddUint32(&c.id, 1))
+		if n != 0 {
+			return packet.ID(n)
+		}
+	}
 }

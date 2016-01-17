@@ -15,6 +15,9 @@ const (
 
 	// ExactlyOnce represents "assured delivery" (=1).
 	ExactlyOnce
+
+	// Failure indicates "subscription failed".
+	Failure = 0x80
 )
 
 func (q QoS) String() string {
@@ -40,5 +43,18 @@ func (q QoS) qos() packet.QoS {
 		return packet.QExactlyOnce
 	default:
 		return packet.QAtLeastOnce
+	}
+}
+
+func toQoS(r packet.SubscribeResult) QoS {
+	switch r {
+	case packet.SubscribeAtMostOnce:
+		return AtMostOnce
+	case packet.SubscribeAtLeastOnce:
+		return AtLeastOnce
+	case packet.SubscribeExactOnce:
+		return ExactlyOnce
+	default:
+		return Failure
 	}
 }
