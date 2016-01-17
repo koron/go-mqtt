@@ -3,6 +3,7 @@ package client
 import (
 	"bufio"
 	"errors"
+	"log"
 	"net"
 	"net/url"
 
@@ -57,6 +58,8 @@ type Options struct {
 	CleanSession bool
 	KeepAlive    uint16
 	Will         *Will
+
+	Logger *log.Logger
 }
 
 func (o *Options) version() uint8 {
@@ -171,6 +174,9 @@ func Connect(p Param, df DisconnectedFunc) (Client, error) {
 	cl := &client{
 		conn: c,
 		r:    r,
+		p:    p,
+		df:   df,
+		log:  p.Options.Logger,
 	}
 	cl.start()
 	return cl, nil

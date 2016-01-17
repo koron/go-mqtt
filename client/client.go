@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -28,58 +29,56 @@ type Client interface {
 	// Publish publishes a message to MQTT broker.
 	Publish(qos QoS, retain bool, topic string, msg []byte) error
 
-	// ReadMessage returns a message if it was available.  Otherwise this will
-	// block.
-	ReadMessage() (*Message, error)
-
-	// PeekMessage returns true if ReadMessage() can return one or more
-	// messages without blocking.
-	PeekMessage() bool
+	// Read returns a message if it was available.
+	// If any messages are unavailable, this blocks until message would be
+	// available when block is true, and this returns nil when block is false.
+	Read(block bool) (*Message, error)
 }
 
 var (
 	// ErrTerminated indicates the operation is terminated.
-	ErrTerminated = errors.New("ping terminated")
+	ErrTerminated = errors.New("terminated")
 )
 
 // client implements a simple MQTT client.
 type client struct {
 	conn net.Conn
 	r    packet.Reader
+	p    Param
+	df   DisconnectedFunc
+	log  *log.Logger
+
 	sl   sync.Mutex // send (conn) lock
+	id   uint32
+	derr error
 
 	ping  *waitop.WaitOp
 	subsc *waitop.WaitOp
 	unsub *waitop.WaitOp
-
-	id uint32
+	msgc  *sync.Cond
+	msgs  []*Message
+	msgr  int
+	msgw  int
 }
 
 var _ Client = (*client)(nil)
 
 func (c *client) Disconnect(force bool) error {
+	c.sl.Lock()
+	defer c.sl.Unlock()
 	if c.conn == nil {
 		return nil
 	}
 	if !force {
 		b, _ := (&packet.Disconnect{}).Encode()
-		c.send(b)
+		c.sendRaw(b)
 	}
-	// close connection and remove all resources.
-	c.sl.Lock()
-	err := c.conn.Close()
-	c.conn = nil
-	c.r = nil
-	c.ping.Close()
-	c.subsc.Close()
-	c.unsub.Close()
-	c.sl.Unlock()
-	return err
+	return c.stopRaw(Explicitly)
 }
 
 func (c *client) Ping() error {
 	_, err := c.ping.Do(func() error {
-		return c.encodeAndSend(&packet.PingReq{})
+		return c.send(&packet.PingReq{})
 	})
 	return err
 }
@@ -92,7 +91,7 @@ func (c *client) Subscribe(topics []Topic) error {
 			return err
 		}
 		id = c.emitID()
-		return c.encodeAndSend(&packet.Subscribe{
+		return c.send(&packet.Subscribe{
 			PacketID: id,
 			Topics:   array,
 		})
@@ -126,9 +125,9 @@ func (c *client) Unsubscribe(topics []string) error {
 	var id packet.ID
 	r, err := c.unsub.Do(func() error {
 		id = c.emitID()
-		return c.encodeAndSend(&packet.Unsubscribe{
+		return c.send(&packet.Unsubscribe{
 			PacketID: id,
-			Topics: topics,
+			Topics:   topics,
 		})
 	})
 	if err != nil {
@@ -157,47 +156,89 @@ func (c *client) Publish(qos QoS, retain bool, topic string, msg []byte) error {
 	}
 }
 
-func (c *client) PeekMessage() bool {
-	// TODO: impl PeekMessage
-	return false
-}
-
-func (c *client) ReadMessage() (*Message, error) {
-	// TODO: impl ReadMessage
-	return nil, nil
+func (c *client) Read(block bool) (*Message, error) {
+	c.msgc.L.Lock()
+	for c.msgr == c.msgw {
+		if !block {
+			c.msgc.L.Unlock()
+			return nil, nil
+		}
+		c.msgc.Wait()
+	}
+	m := c.msgs[c.msgr]
+	c.msgs[c.msgr] = nil
+	if m != nil {
+		if c.msgr++; c.msgr >= len(c.msgs) {
+			c.msgr = 0
+		}
+	}
+	c.msgc.L.Unlock()
+	if m == nil {
+		return nil, ErrTerminated
+	}
+	return m, nil
 }
 
 func (c *client) start() {
 	c.ping = waitop.New()
 	c.subsc = waitop.New()
 	c.unsub = waitop.New()
+	c.msgc = sync.NewCond(new(sync.Mutex))
+	c.msgs = make([]*Message, 32)
 	go c.recvLoop()
 }
 
-func (c *client) stop(err error) {
-	// TODO: disconnect and stop
+// stop closes connection and remove all resources.
+func (c *client) stop(reason error) error {
+	c.sl.Lock()
+	defer c.sl.Unlock()
+	return c.stopRaw(reason)
 }
 
-func (c *client) logTemporaryError(err error) {
-	// TODO: logTemporaryError
+func (c *client) stopRaw(reason error) error {
+	if c.conn == nil {
+		return nil
+	}
+	err := c.conn.Close()
+	c.conn = nil
+	c.r = nil
+	c.ping.Close()
+	c.subsc.Close()
+	c.unsub.Close()
+	if c.derr == nil {
+		c.derr = reason
+	}
+	// clear all messages
+	c.msgc.L.Lock()
+	for i, m := range c.msgs {
+		if m != nil {
+			c.logDroppedMessage(m)
+		}
+		c.msgs[i] = nil
+	}
+	c.msgr = 0
+	c.msgw = 1
+	c.msgc.Signal()
+	c.msgc.L.Unlock()
+	return err
 }
 
-func (c *client) send(b []byte) error {
+func (c *client) sendRaw(b []byte) error {
+	_, err := c.conn.Write(b)
+	return err
+}
+
+func (c *client) send(p packet.Packet) error {
 	c.sl.Lock()
 	defer c.sl.Unlock()
 	if c.conn == nil {
 		return errors.New("connection closed")
 	}
-	_, err := c.conn.Write(b)
-	return err
-}
-
-func (c *client) encodeAndSend(p packet.Packet) error {
 	b, err := p.Encode()
 	if err != nil {
 		return err
 	}
-	return c.send(b)
+	return c.sendRaw(b)
 }
 
 func (c *client) recvLoop() {
@@ -215,7 +256,11 @@ loop:
 		}
 		switch p := rp.(type) {
 		case *packet.Publish:
-			// TODO: store published message.
+			err := c.procPublish(p)
+			if err != nil {
+				c.stop(err)
+				break loop
+			}
 		case *packet.SubACK:
 			c.subsc.Fulfill(p)
 		case *packet.UnsubACK:
@@ -227,6 +272,9 @@ loop:
 			break loop
 		}
 	}
+	if c.df != nil {
+		c.df(c.derr, c.p)
+	}
 }
 
 func (c *client) publish0(retain bool, topic string, msg []byte) error {
@@ -236,12 +284,7 @@ func (c *client) publish0(retain bool, topic string, msg []byte) error {
 		TopicName: topic,
 		Payload:   msg,
 	}
-	err := c.encodeAndSend(p)
-	if err != nil {
-		// TODO: treat temporary error.
-		return err
-	}
-	return nil
+	return c.send(p)
 }
 
 func (c *client) emitID() packet.ID {
@@ -251,4 +294,59 @@ func (c *client) emitID() packet.ID {
 			return packet.ID(n)
 		}
 	}
+}
+
+func (c *client) procPublish(p *packet.Publish) error {
+	// parse as Message
+	var m *Message
+	switch p.QoS {
+	case packet.QAtMostOnce:
+		m = &Message{
+			Topic: p.TopicName,
+			Body:  p.Payload,
+		}
+	default:
+		// unsupported QoS.
+		return errors.New("unsupported QoS")
+	}
+	if m == nil {
+		return nil
+	}
+	return c.put(m)
+}
+
+func (c *client) put(m *Message) error {
+	// put to ring buffer.
+	c.msgc.L.Lock()
+	c.msgs[c.msgw] = m
+	if c.msgw++; c.msgw >= len(c.msgs) {
+		c.msgw = 0
+	}
+	var dropped *Message
+	if c.msgw == c.msgr {
+		dropped = c.msgs[c.msgr]
+		if c.msgr++; c.msgr >= len(c.msgs) {
+			c.msgr = 0
+		}
+	}
+	c.msgc.Signal()
+	c.msgc.L.Unlock()
+	if dropped != nil {
+		c.logDroppedMessage(dropped)
+	}
+	return nil
+}
+
+func (c *client) logTemporaryError(nerr net.Error) {
+	if c.log == nil {
+		return
+	}
+	c.log.Printf("temporal error: %v", nerr)
+}
+
+func (c *client) logDroppedMessage(m *Message) {
+	if c.log == nil {
+		return
+	}
+	c.log.Printf("dropped message: %v", m)
 }
