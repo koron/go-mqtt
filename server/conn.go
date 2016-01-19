@@ -176,7 +176,7 @@ func (c *conn) serve() {
 		debug.Printf("mqtt: establishConnection failed: %v\n", err)
 		return
 	}
-	err = c.server.register(c)
+	//err = c.server.register(c)
 	if err != nil {
 		debug.Printf("mqtt: register failed: %v\n", err)
 		return
@@ -185,7 +185,7 @@ func (c *conn) serve() {
 	c.wg.Add(2)
 	go c.recvMain()
 	c.sendMain()
-	c.server.unregister(c)
+	//c.server.unregister(c)
 }
 
 func (c *conn) processMessage(p packet.Packet) error {
