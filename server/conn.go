@@ -156,7 +156,9 @@ func (c *conn) establishConnection() error {
 		})
 		return err
 	}
-	rc := c.server.authenticate(c, req)
+	// XXX: temporary codes.
+	_ = req
+	var rc packet.ConnectReturnCode
 	// send connack packet.
 	_, err = c.writePacket(&packet.ConnACK{
 		SessionPresent: rc == packet.ConnectAccept,

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/koron/go-debug"
+	"github.com/koron/go-mqtt/internal/backoff"
 	"github.com/koron/go-mqtt/packet"
 )
 
@@ -18,16 +19,19 @@ var (
 
 	// ErrTooManyConnections indicates too many connections for a server.
 	ErrTooManyConnections = errors.New("too many connections")
+
+	// ErrInvalidCloudAdapter indicates Adapter#Connect() returns invalid CloudAdapter.
+	ErrInvalidCloudAdapter = errors.New("invalid CloudAdapter")
 )
 
 // Server is a instance of MQTT server.
 type Server struct {
-	Addr                string
-	ConnectHandler      ConnectHandler
-	DisconnectedHandler DisconnectedHandler
+	Addr    string
+	Adapter Adapter
 
 	quit     chan bool
 	listener net.Listener
+	wg       sync.WaitGroup // for Client#serve()
 
 	connLock sync.Mutex
 	conns    map[ConnID]*conn
@@ -64,35 +68,31 @@ func (srv *Server) Serve(l net.Listener) error {
 	debug.Printf("mqtt: start to listen on %s\n", l.Addr().String())
 	srv.quit = make(chan bool, 1)
 	srv.listener = l
-	var tempDelay time.Duration // how long to sleep on accept failure
+	srv.wg = sync.WaitGroup{}
+	delay := backoff.Exp{Min: time.Millisecond * 5}
 	for {
-		rw, err := l.Accept()
+		conn, err := l.Accept()
 		select {
 		case <-srv.quit:
 			return nil
 		default:
 		}
 		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Temporary() {
-				if tempDelay == 0 {
-					tempDelay = 5 * time.Millisecond
-				} else {
-					tempDelay *= 2
-				}
-				if max := 1 * time.Second; tempDelay > max {
-					tempDelay = max
-				}
-				srv.logf("mqtt: Accept error: %v; retrying in %v", err, tempDelay)
-				time.Sleep(tempDelay)
+			if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+				srv.logTemporaryError(nerr, &delay, nil)
+				delay.Wait()
 				continue
 			}
 			return err
 		}
-		srv.connWait.Add(1)
-		c := newConn(srv, rw)
+		delay.Reset()
+
+		// start client goroutine.
+		c := newClient(srv, conn)
+		srv.wg.Add(1)
 		go func() {
 			c.serve()
-			srv.connWait.Done()
+			srv.wg.Done()
 		}()
 	}
 }
@@ -109,8 +109,8 @@ func (srv *Server) Close() error {
 	}
 	srv.conns = nil
 	srv.connLock.Unlock()
-	// wait to terminate all conns.
-	srv.connWait.Wait()
+	// wait to terminate all clients.
+	srv.wg.Wait()
 	return nil
 }
 
@@ -126,13 +126,6 @@ func (srv *Server) newConn(rwc net.Conn) (*conn, error) {
 		writer: rwc,
 	}
 	return c, nil
-}
-
-func (srv *Server) authenticate(c *conn, p *packet.Connect) packet.ConnectReturnCode {
-	if srv.ConnectHandler == nil {
-		return packet.ConnectAccept
-	}
-	return srv.ConnectHandler(srv, c, p)
 }
 
 func (srv *Server) register(c *conn) error {
@@ -168,7 +161,43 @@ func (srv *Server) unregister(c *conn) {
 		return
 	}
 	delete(srv.conns, c.id)
-	if srv.DisconnectedHandler != nil {
-		srv.DisconnectedHandler(srv, v, v.disconnect)
+}
+
+func (srv *Server) logTemporaryError(err net.Error, d *backoff.Exp, c *client) {
+	// TODO: log net temporary error.
+}
+
+func (srv *Server) logEstablishFailure(c *client, err error) {
+	// TODO: log establish failure.
+}
+
+func (srv *Server) adapter() Adapter {
+	if srv.Adapter == nil {
+		return DefaultAdapter
 	}
+	return srv.Adapter
+}
+
+func (srv *Server) clientOnConnect(c *client, p *packet.Connect) (ClientAdapter, error) {
+	ca, err := srv.adapter().Connect(srv, p)
+	if err != nil {
+		return nil, err
+	}
+	if ca == nil {
+		return nil, ErrInvalidCloudAdapter
+	}
+	return ca, nil
+}
+
+func (srv *Server) clientOnStart(c *client) {
+	// TODO: register living client.
+}
+
+func (srv *Server) clientOnStop(c *client, err error) {
+	srv.adapter().Disconnect(srv, c.ca, err)
+	// TODO: unregister client
+}
+
+func (srv *Server) clientOnDisconnect(c *client) {
+	// TODO:
 }
