@@ -30,34 +30,3 @@ func (a *NullAdapter) Disconnect(srv *Server, ca ClientAdapter, err error) {
 
 // DefaultAdapter is a default server adapter.
 var DefaultAdapter = &NullAdapter{}
-
-// ClientAdapter prorvides MQTT client adapter.
-type ClientAdapter interface {
-
-	// ID returns client ID.
-	ID() string
-
-	// IsSessionPresent() returns true, if previous session is reverted.
-	IsSessionPresent() bool
-}
-
-// NullClientAdapter is a default implementation of client adapter.
-type NullClientAdapter struct {
-	// ClientID holds client ID at Connect.
-	ClientID string
-
-	// SessionPresent indicates client having session info.
-	SessionPresent bool
-}
-
-var _ ClientAdapter = (*NullClientAdapter)(nil)
-
-// ID returns client ID.
-func (ca *NullClientAdapter) ID() string {
-	return ca.ClientID
-}
-
-// IsSessionPresent returns true, if previous session is reverted.
-func (ca *NullClientAdapter) IsSessionPresent() bool {
-	return ca.SessionPresent
-}

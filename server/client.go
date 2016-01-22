@@ -133,16 +133,91 @@ func (c *client) recvLoop() error {
 		delay.Reset()
 		err = c.process(p)
 		if err != nil {
+			if cerr, ok := err.(*clientError); ok && cerr.cont {
+				if cerr == errDisconnected {
+					return nil
+				}
+				c.srv.logClientError(cerr, p, c)
+				continue
+			}
 			return err
 		}
 	}
 }
 
 func (c *client) process(raw packet.Packet) error {
-	switch p := raw.(type) {
-	// TODO:
+	err := c.ca.PreProcess(raw)
+	if err != nil {
+		return err
 	}
+	switch p := raw.(type) {
+	case *packet.Disconnect:
+		return c.processDisconnect(p)
+	case *packet.PingReq:
+		return c.processPingReq(p)
+	case *packet.Subscribe:
+		return c.processSubscribe(p)
+	case *packet.Unsubscribe:
+		return c.processUnsubscribe(p)
+	case *packet.Publish:
+		return c.processPublish(p)
+	case *packet.PubACK:
+		return c.processPubACK(p)
+	case *packet.PubRec:
+		return c.processPubRec(p)
+	case *packet.PubRel:
+		return c.processPubRel(p)
+	case *packet.PubComp:
+		return c.processPubComp(p)
+	default:
+		return errNotAcceptable
+	}
+}
+
+func (c *client) processDisconnect(p *packet.Disconnect) error {
+	// TODO: hook to c.ca
+	return errDisconnected
+}
+
+func (c *client) processPingReq(p *packet.PingReq) error {
+	// TODO: hook to c.ca
+	c.sq <- &packet.PingResp{}
 	return nil
+}
+
+func (c *client) processSubscribe(p *packet.Subscribe) error {
+	// TODO:
+	return errNotSuported
+}
+
+func (c *client) processUnsubscribe(p *packet.Unsubscribe) error {
+	// TODO:
+	return errNotSuported
+}
+
+func (c *client) processPublish(p *packet.Publish) error {
+	// TODO:
+	return errNotSuported
+}
+
+func (c *client) processPubACK(p *packet.PubACK) error {
+	// FIXME: QoS1 will be supported in future.
+	return errNotSuported
+}
+
+func (c *client) processPubRec(p *packet.PubRec) error {
+	// FIXME: QoS2 will be supported in future.
+	return errNotSuported
+}
+
+func (c *client) processPubRel(p *packet.PubRel) error {
+	// FIXME: QoS2 will be supported in future.
+	return errNotSuported
+}
+
+func (c *client) processPubComp(p *packet.PubComp) error {
+	// FIXME: QoS2 will be supported in future.
+	return errNotSuported
 }
 
 func (c *client) send(p packet.Packet) error {
@@ -150,9 +225,14 @@ func (c *client) send(p packet.Packet) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.conn.Write(b)
+	b2, err = c.ca.PreSend(p, b)
 	if err != nil {
 		return err
 	}
+	_, err = c.conn.Write(b2)
+	if err != nil {
+		return err
+	}
+	c.ca.PostSend(p, b2)
 	return nil
 }
