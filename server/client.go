@@ -175,13 +175,21 @@ func (c *client) process(raw packet.Packet) error {
 }
 
 func (c *client) processDisconnect(p *packet.Disconnect) error {
-	// TODO: hook to c.ca
+	err := c.ca.OnDisconnect()
+	if err != nil {
+		return err
+	}
 	return errDisconnected
 }
 
 func (c *client) processPingReq(p *packet.PingReq) error {
-	// TODO: hook to c.ca
-	c.sq <- &packet.PingResp{}
+	f, err := c.ca.OnPing()
+	if err != nil {
+		return err
+	}
+	if f {
+		c.sq <- &packet.PingResp{}
+	}
 	return nil
 }
 
@@ -225,7 +233,7 @@ func (c *client) send(p packet.Packet) error {
 	if err != nil {
 		return err
 	}
-	b2, err = c.ca.PreSend(p, b)
+	b2, err := c.ca.PreSend(p, b)
 	if err != nil {
 		return err
 	}

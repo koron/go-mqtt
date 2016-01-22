@@ -20,6 +20,13 @@ type ClientAdapter interface {
 
 	// PostSend is called after send a packet.
 	PostSend(p packet.Packet, d []byte)
+
+	// OnDisconnect is called when recieve DISCONNECT packet.
+	OnDisconnect() error
+
+	// OnPing is called when recieve PINGREQ packet.  If it returns false,
+	// PINGRESP is not sent.
+	OnPing() (bool, error)
 }
 
 // NullClientAdapter is a default implementation of client adapter.
@@ -55,4 +62,14 @@ func (ca *NullClientAdapter) PreSend(p packet.Packet, d []byte) ([]byte, error) 
 
 // PostSend does nothing.
 func (ca *NullClientAdapter) PostSend(p packet.Packet, d []byte) {
+}
+
+// OnDisconnect does nothing.
+func (ca *NullClientAdapter) OnDisconnect() error {
+	return nil
+}
+
+// OnPing does nothing.
+func (ca *NullClientAdapter) OnPing() (bool, error) {
+	return true, nil
 }
