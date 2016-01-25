@@ -1,38 +1,34 @@
 package server
 
 import (
-	"bufio"
 	"errors"
+	"log"
 	"net"
 	"net/url"
 	"sync"
 	"time"
 
-	"github.com/koron/go-debug"
+	"github.com/koron/go-mqtt/internal/backoff"
 	"github.com/koron/go-mqtt/packet"
 )
 
 var (
-	// ErrServerClosed indicates a server have been closed already.
-	ErrServerClosed = errors.New("server have been closed")
-
-	// ErrTooManyConnections indicates too many connections for a server.
-	ErrTooManyConnections = errors.New("too many connections")
+	// ErrInvalidCloudAdapter indicates Adapter#Connect() returns invalid CloudAdapter.
+	ErrInvalidCloudAdapter = errors.New("invalid CloudAdapter")
 )
 
 // Server is a instance of MQTT server.
 type Server struct {
-	Addr                string
-	ConnectHandler      ConnectHandler
-	DisconnectedHandler DisconnectedHandler
+	Addr    string
+	Adapter Adapter
+	Options *Options
 
+	logger   *log.Logger
 	quit     chan bool
 	listener net.Listener
-
-	connLock sync.Mutex
-	conns    map[ConnID]*conn
-	connID   ConnID         // next ConnID to issue
-	connWait sync.WaitGroup // wait goroutines of conn.serve()
+	wg       sync.WaitGroup // for client#serve()
+	cl       sync.Mutex
+	cs       map[*client]bool
 }
 
 func (srv *Server) addr() string {
@@ -40,6 +36,13 @@ func (srv *Server) addr() string {
 		return "tcp://127.0.0.1:1883"
 	}
 	return srv.Addr
+}
+
+func (srv *Server) options() *Options {
+	if srv.Options == nil {
+		return DefaultOptions
+	}
+	return srv.Options
 }
 
 // ListenAndServe listens on the TCP network address
@@ -52,47 +55,42 @@ func (srv *Server) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	srv.conns = make(map[ConnID]*conn)
-	srv.connID = 0
-	srv.connWait = sync.WaitGroup{}
 	return srv.Serve(l)
 }
 
 // Serve accepts incomming connections on the Listener.
 func (srv *Server) Serve(l net.Listener) error {
 	defer l.Close()
-	debug.Printf("mqtt: start to listen on %s\n", l.Addr().String())
+	srv.logger = srv.options().Logger
 	srv.quit = make(chan bool, 1)
 	srv.listener = l
-	var tempDelay time.Duration // how long to sleep on accept failure
+	srv.wg = sync.WaitGroup{}
+	srv.cs = make(map[*client]bool)
+	srv.logServerStart(l)
+	delay := backoff.Exp{Min: time.Millisecond * 5}
 	for {
-		rw, err := l.Accept()
+		conn, err := l.Accept()
 		select {
 		case <-srv.quit:
 			return nil
 		default:
 		}
 		if err != nil {
-			if err, ok := err.(net.Error); ok && err.Temporary() {
-				if tempDelay == 0 {
-					tempDelay = 5 * time.Millisecond
-				} else {
-					tempDelay *= 2
-				}
-				if max := 1 * time.Second; tempDelay > max {
-					tempDelay = max
-				}
-				srv.logf("mqtt: Accept error: %v; retrying in %v", err, tempDelay)
-				time.Sleep(tempDelay)
+			if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+				srv.logTemporaryError(nerr, &delay, nil)
+				delay.Wait()
 				continue
 			}
 			return err
 		}
-		srv.connWait.Add(1)
-		c := newConn(srv, rw)
+		delay.Reset()
+
+		// start client goroutine.
+		c := newClient(srv, conn)
+		srv.wg.Add(1)
 		go func() {
 			c.serve()
-			srv.connWait.Done()
+			srv.wg.Done()
 		}()
 	}
 }
@@ -100,75 +98,83 @@ func (srv *Server) Serve(l net.Listener) error {
 // Close terminates the server by shutting down all the client connections and
 // closing.
 func (srv *Server) Close() error {
+	// terminate server.
 	close(srv.quit)
 	srv.listener.Close()
-	// close all connections.
-	srv.connLock.Lock()
-	for _, c := range srv.conns {
-		c.Close()
+	// terminate all clients
+	srv.cl.Lock()
+	for c := range srv.cs {
+		c.terminate()
 	}
-	srv.conns = nil
-	srv.connLock.Unlock()
-	// wait to terminate all conns.
-	srv.connWait.Wait()
+	srv.cl.Unlock()
+	// wait to terminate all clients.
+	srv.wg.Wait()
 	return nil
 }
 
-func (srv *Server) logf(format string, args ...interface{}) {
-	debug.Printf(format, args...)
-}
-
-func (srv *Server) newConn(rwc net.Conn) (*conn, error) {
-	c := &conn{
-		server: srv,
-		rwc:    rwc,
-		reader: bufio.NewReader(rwc),
-		writer: rwc,
-	}
-	return c, nil
-}
-
-func (srv *Server) authenticate(c *conn, p *packet.Connect) packet.ConnectReturnCode {
-	if srv.ConnectHandler == nil {
-		return packet.ConnectAccept
-	}
-	return srv.ConnectHandler(srv, c, p)
-}
-
-func (srv *Server) register(c *conn) error {
-	srv.connLock.Lock()
-	defer srv.connLock.Unlock()
-	if srv.conns == nil {
-		return ErrServerClosed
-	}
-	start := srv.connID
-	for {
-		if _, ok := srv.conns[srv.connID]; !ok && srv.connID != 0 {
-			break
-		}
-		srv.connID++
-		if start == srv.connID {
-			return ErrTooManyConnections
-		}
-	}
-	c.id = srv.connID
-	srv.conns[srv.connID] = c
-	srv.connID++
-	return nil
-}
-
-func (srv *Server) unregister(c *conn) {
-	srv.connLock.Lock()
-	defer srv.connLock.Unlock()
-	if srv.conns == nil {
+func (srv *Server) logf(fmt string, a ...interface{}) {
+	if srv.logger == nil {
 		return
 	}
-	v, ok := srv.conns[c.id]
-	if !ok || v != c {
+	srv.logger.Printf(fmt, a...)
+}
+
+func (srv *Server) logServerStart(l net.Listener) {
+	srv.logf("server starts to listen: %s\n", l.Addr().String())
+}
+
+func (srv *Server) logTemporaryError(err net.Error, d *backoff.Exp, c *client) {
+	if c != nil {
+		srv.logf("client;%s detect temporary error: %v", c.id(), err)
 		return
 	}
-	delete(srv.conns, c.id)
-	if srv.DisconnectedHandler != nil {
-		srv.DisconnectedHandler(srv, v, v.disconnect)
+	srv.logf("server detect temporary error: %v", err)
+}
+
+// logAdapterError logs continuable AdapterError
+func (srv *Server) logAdapterError(err AdapterError, p packet.Packet, c *client) {
+	srv.logf("client:%s rejects packet:%#v but continue: %s",
+		c.id(), p, err.Error())
+}
+
+func (srv *Server) logEstablishFailure(c *client, err error) {
+	srv.logf("client fails to connect: %v", err)
+}
+
+func (srv *Server) logSendPacketError(c *client, p packet.Packet, err error) {
+	srv.logf("failed to send packet;%#v to client;%s: %v", c.id, p, err)
+}
+
+func (srv *Server) adapter() Adapter {
+	if srv.Adapter == nil {
+		return DefaultAdapter
 	}
+	return srv.Adapter
+}
+
+func (srv *Server) clientOnConnect(c *client, p *packet.Connect) (ClientAdapter, error) {
+	ca, err := srv.adapter().Connect(srv, c, p)
+	if err != nil {
+		return nil, err
+	}
+	if ca == nil {
+		return nil, ErrInvalidCloudAdapter
+	}
+	return ca, nil
+}
+
+func (srv *Server) clientOnStart(c *client) {
+	srv.cl.Lock()
+	defer srv.cl.Unlock()
+	srv.cs[c] = true
+}
+
+func (srv *Server) clientOnStop(c *client) {
+	srv.cl.Lock()
+	defer srv.cl.Unlock()
+	delete(srv.cs, c)
+}
+
+func (srv *Server) clientOnDisconnect(c *client, err error) {
+	srv.adapter().Disconnect(srv, c.ca, err)
 }
