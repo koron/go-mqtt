@@ -46,6 +46,19 @@ func (q QoS) toSubscribeResult() packet.SubscribeResult {
 	}
 }
 
+func (q QoS) qos() packet.QoS {
+	switch q {
+	case AtLeastOnce:
+		return packet.QAtLeastOnce
+	case AtMostOnce:
+		return packet.QAtMostOnce
+	case ExactlyOnce:
+		return packet.QExactlyOnce
+	default:
+		return packet.QAtLeastOnce
+	}
+}
+
 func toQoS(v packet.QoS) QoS {
 	switch v {
 	case packet.QAtMostOnce:

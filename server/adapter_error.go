@@ -30,6 +30,11 @@ var (
 	ErrNotAcceptable AdapterError = &adapterError{
 		message: "not acceptable packet",
 	}
+
+	ErrUnsupportedQoS AdapterError = &adapterError{
+		message: "unsupported QoS",
+		cont:    true,
+	}
 )
 
 func (ae *adapterError) Error() string {

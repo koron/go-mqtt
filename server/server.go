@@ -153,7 +153,7 @@ func (srv *Server) adapter() Adapter {
 }
 
 func (srv *Server) clientOnConnect(c *client, p *packet.Connect) (ClientAdapter, error) {
-	ca, err := srv.adapter().Connect(srv, p)
+	ca, err := srv.adapter().Connect(srv, c, p)
 	if err != nil {
 		return nil, err
 	}

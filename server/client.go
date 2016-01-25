@@ -10,6 +10,12 @@ import (
 	"github.com/koron/go-mqtt/packet"
 )
 
+// Client provides interface to client connection.
+type Client interface {
+	// Publish publishes a message to the client.
+	Publish(qos QoS, retain bool, topic string, body []byte) error
+}
+
 type client struct {
 	srv  *Server
 	conn net.Conn
@@ -20,6 +26,8 @@ type client struct {
 	ca   ClientAdapter
 	pf   PacketFilter
 }
+
+var _ Client = (*client)(nil)
 
 func newClient(srv *Server, conn net.Conn) *client {
 	return &client{
@@ -296,5 +304,25 @@ func (c *client) send(p packet.Packet) error {
 		return err
 	}
 	c.pf.PostSend(p, b2)
+	return nil
+}
+
+func (c *client) Publish(qos QoS, retain bool, topic string, body []byte) error {
+	switch qos {
+	case AtMostOnce:
+		return c.publish0(retain, topic, body)
+	default:
+		return ErrUnsupportedQoS
+	}
+}
+
+func (c *client) publish0(retain bool, topic string, body []byte) error {
+	p := &packet.Publish{
+		QoS:       AtMostOnce.qos(),
+		Retain:    retain,
+		TopicName: topic,
+		Payload:   body,
+	}
+	c.sq <- p
 	return nil
 }

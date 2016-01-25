@@ -43,6 +43,9 @@ type ClientAdapter interface {
 
 // NullClientAdapter is a default implementation of client adapter.
 type NullClientAdapter struct {
+	// Client holds client connection interface.
+	Client Client
+
 	// ClientID holds client ID at Connect.
 	ClientID string
 
