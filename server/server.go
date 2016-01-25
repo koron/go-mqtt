@@ -131,9 +131,10 @@ func (srv *Server) logTemporaryError(err net.Error, d *backoff.Exp, c *client) {
 	srv.logf("server detect temporary error: %v", err)
 }
 
-// logClientError logs continuable *clientError
-func (srv *Server) logClientError(err *clientError, p packet.Packet, c *client) {
-	srv.logf("client:%s sent packet:%#v but failed: %s", c.id(), p, err.Error())
+// logAdapterError logs continuable AdapterError
+func (srv *Server) logAdapterError(err AdapterError, p packet.Packet, c *client) {
+	srv.logf("client:%s rejects packet:%#v but continue: %s",
+		c.id(), p, err.Error())
 }
 
 func (srv *Server) logEstablishFailure(c *client, err error) {

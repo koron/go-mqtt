@@ -137,12 +137,14 @@ func (c *client) recvLoop() error {
 		delay.Reset()
 		err = c.process(p)
 		if err != nil {
-			if cerr, ok := err.(*clientError); ok && cerr.cont {
-				if cerr == errDisconnected {
+			if aerr, ok := err.(AdapterError); ok {
+				if aerr.Continue() {
+					c.srv.logAdapterError(aerr, p, c)
+					continue
+				}
+				if aerr == ErrDisconnected {
 					return nil
 				}
-				c.srv.logClientError(cerr, p, c)
-				continue
 			}
 			return err
 		}
@@ -176,7 +178,7 @@ func (c *client) process(raw packet.Packet) error {
 	case *packet.PubComp:
 		return c.processPubComp(p)
 	default:
-		return errNotAcceptable
+		return ErrNotAcceptable
 	}
 }
 
@@ -185,7 +187,7 @@ func (c *client) processDisconnect(p *packet.Disconnect) error {
 	if err != nil {
 		return err
 	}
-	return errDisconnected
+	return ErrDisconnected
 }
 
 func (c *client) processPingReq(p *packet.PingReq) error {
@@ -253,22 +255,22 @@ func (c *client) processPublish(p *packet.Publish) error {
 
 func (c *client) processPubACK(p *packet.PubACK) error {
 	// FIXME: QoS1 will be supported in future.
-	return errNotSuported
+	return ErrNotSuported
 }
 
 func (c *client) processPubRec(p *packet.PubRec) error {
 	// FIXME: QoS2 will be supported in future.
-	return errNotSuported
+	return ErrNotSuported
 }
 
 func (c *client) processPubRel(p *packet.PubRel) error {
 	// FIXME: QoS2 will be supported in future.
-	return errNotSuported
+	return ErrNotSuported
 }
 
 func (c *client) processPubComp(p *packet.PubComp) error {
 	// FIXME: QoS2 will be supported in future.
-	return errNotSuported
+	return ErrNotSuported
 }
 
 func (c *client) send(p packet.Packet) error {
