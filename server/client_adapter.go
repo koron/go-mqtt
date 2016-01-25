@@ -38,7 +38,7 @@ type ClientAdapter interface {
 	OnUnsubscribe(filters []string) error
 
 	// OnPublish is called when receive PUBLISH packet.
-	OnPublish() error
+	OnPublish(m *Message) error
 }
 
 // NullClientAdapter is a default implementation of client adapter.
@@ -104,7 +104,6 @@ func (ca *NullClientAdapter) OnUnsubscribe(filters []string) error {
 }
 
 // OnPublish does nothing.
-func (ca *NullClientAdapter) OnPublish() error {
-	// TODO:
+func (ca *NullClientAdapter) OnPublish(m *Message) error {
 	return nil
 }

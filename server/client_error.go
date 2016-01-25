@@ -5,6 +5,8 @@ type clientError struct {
 	cont    bool // true if this error is continuable
 }
 
+var _ error = (*clientError)(nil)
+
 var (
 	errDisconnected = &clientError{
 		message: "disconnected",
@@ -18,7 +20,6 @@ var (
 		message: "not acceptable packet",
 	}
 )
-var _ error = (*clientError)(nil)
 
 func (ce *clientError) Error() string {
 	return ce.message

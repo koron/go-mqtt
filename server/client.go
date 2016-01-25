@@ -243,8 +243,12 @@ func (c *client) processUnsubscribe(p *packet.Unsubscribe) error {
 }
 
 func (c *client) processPublish(p *packet.Publish) error {
-	// TODO:
-	return errNotSuported
+	m := toMessage(p)
+	err := c.ca.OnPublish(m)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *client) processPubACK(p *packet.PubACK) error {
