@@ -35,7 +35,7 @@ type ClientAdapter interface {
 	OnSubscribe(topics []Topic) (acceptedQoS []QoS, err error)
 
 	// OnUnsubscribe is called when receive UNSUBSCRIBE packet.
-	OnUnsubscribe() error
+	OnUnsubscribe(filters []string) error
 
 	// OnPublish is called when receive PUBLISH packet.
 	OnPublish() error
@@ -99,8 +99,7 @@ func (ca *NullClientAdapter) OnSubscribe(topics []Topic) ([]QoS, error) {
 }
 
 // OnUnsubscribe does nothing.
-func (ca *NullClientAdapter) OnUnsubscribe() error {
-	// TODO:
+func (ca *NullClientAdapter) OnUnsubscribe(filters []string) error {
 	return nil
 }
 

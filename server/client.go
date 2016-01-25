@@ -232,8 +232,14 @@ func (c *client) processSubscribe(p *packet.Subscribe) error {
 }
 
 func (c *client) processUnsubscribe(p *packet.Unsubscribe) error {
-	// TODO:
-	return errNotSuported
+	err := c.ca.OnUnsubscribe(p.Topics)
+	if err != nil {
+		return err
+	}
+	c.sq <- &packet.UnsubACK{
+		PacketID: p.PacketID,
+	}
+	return nil
 }
 
 func (c *client) processPublish(p *packet.Publish) error {
