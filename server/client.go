@@ -18,6 +18,7 @@ type client struct {
 	sq   chan packet.Packet
 	rd   packet.Reader
 	ca   ClientAdapter
+	pf   PacketFilter
 }
 
 func newClient(srv *Server, conn net.Conn) *client {
@@ -71,6 +72,9 @@ func (c *client) establish() error {
 		}
 		c.send(&packet.ConnACK{ReturnCode: rc})
 		return err
+	}
+	if pf, ok := c.ca.(PacketFilter); ok {
+		c.pf = pf
 	}
 	// send success ConnACK.
 	err = c.send(&packet.ConnACK{
@@ -146,9 +150,11 @@ func (c *client) recvLoop() error {
 }
 
 func (c *client) process(raw packet.Packet) error {
-	err := c.ca.PreProcess(raw)
-	if err != nil {
-		return err
+	if c.pf != nil {
+		err := c.pf.PreProcess(raw)
+		if err != nil {
+			return err
+		}
 	}
 	switch p := raw.(type) {
 	case *packet.Disconnect:
@@ -233,7 +239,16 @@ func (c *client) send(p packet.Packet) error {
 	if err != nil {
 		return err
 	}
-	b2, err := c.ca.PreSend(p, b)
+	if c.pf == nil {
+		// send without PacketFilter
+		_, err = c.conn.Write(b)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	// send with PacketFilter
+	b2, err := c.pf.PreSend(p, b)
 	if err != nil {
 		return err
 	}
@@ -241,6 +256,6 @@ func (c *client) send(p packet.Packet) error {
 	if err != nil {
 		return err
 	}
-	c.ca.PostSend(p, b2)
+	c.pf.PostSend(p, b2)
 	return nil
 }

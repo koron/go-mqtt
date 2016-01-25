@@ -7,6 +7,7 @@ type Adapter interface {
 
 	// Connect is called when a new client try to connect MQTT broker.
 	// It can return one of ConnectError.
+	// ClientAdapter can implement PacketFilter.
 	Connect(srv *Server, p *packet.Connect) (ClientAdapter, error)
 
 	// Disconnect is called when a client disconnected.

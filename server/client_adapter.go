@@ -2,15 +2,8 @@ package server
 
 import "github.com/koron/go-mqtt/packet"
 
-// ClientAdapter prorvides MQTT client adapter.
-type ClientAdapter interface {
-
-	// ID returns client ID.
-	ID() string
-
-	// IsSessionPresent returns true, if previous session is reverted.
-	IsSessionPresent() bool
-
+// PacketFilter filters all packets which recieve and send.
+type PacketFilter interface {
 	// PreProcess receives all packets after received and before it is
 	// processed.
 	PreProcess(p packet.Packet) error
@@ -20,6 +13,16 @@ type ClientAdapter interface {
 
 	// PostSend is called after send a packet.
 	PostSend(p packet.Packet, d []byte)
+}
+
+// ClientAdapter prorvides MQTT client adapter.
+type ClientAdapter interface {
+
+	// ID returns client ID.
+	ID() string
+
+	// IsSessionPresent returns true, if previous session is reverted.
+	IsSessionPresent() bool
 
 	// OnDisconnect is called when recieve DISCONNECT packet.
 	OnDisconnect() error
@@ -27,6 +30,15 @@ type ClientAdapter interface {
 	// OnPing is called when recieve PINGREQ packet.  If it returns false,
 	// PINGRESP is not sent.
 	OnPing() (bool, error)
+
+	// OnSubscribe is called when receive SUBSCRIBE packet.
+	OnSubscribe() error
+
+	// OnUnsubscribe is called when receive UNSUBSCRIBE packet.
+	OnUnsubscribe() error
+
+	// OnPublish is called when receive PUBLISH packet.
+	OnPublish() error
 }
 
 // NullClientAdapter is a default implementation of client adapter.
@@ -38,7 +50,10 @@ type NullClientAdapter struct {
 	SessionPresent bool
 }
 
-var _ ClientAdapter = (*NullClientAdapter)(nil)
+var (
+	_ ClientAdapter = (*NullClientAdapter)(nil)
+	_ PacketFilter = (*NullClientAdapter)(nil)
+)
 
 // ID returns client ID.
 func (ca *NullClientAdapter) ID() string {
@@ -72,4 +87,22 @@ func (ca *NullClientAdapter) OnDisconnect() error {
 // OnPing does nothing.
 func (ca *NullClientAdapter) OnPing() (bool, error) {
 	return true, nil
+}
+
+// OnSubscribe does nothing.
+func (ca *NullClientAdapter) OnSubscribe() error {
+	// TODO:
+	return nil
+}
+
+// OnUnsubscribe does nothing.
+func (ca *NullClientAdapter) OnUnsubscribe() error {
+	// TODO:
+	return nil
+}
+
+// OnPublish does nothing.
+func (ca *NullClientAdapter) OnPublish() error {
+	// TODO:
+	return nil
 }
