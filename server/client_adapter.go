@@ -32,7 +32,7 @@ type ClientAdapter interface {
 	OnPing() (bool, error)
 
 	// OnSubscribe is called when receive SUBSCRIBE packet.
-	OnSubscribe() error
+	OnSubscribe(topics []Topic) (acceptedQoS []QoS, err error)
 
 	// OnUnsubscribe is called when receive UNSUBSCRIBE packet.
 	OnUnsubscribe() error
@@ -52,7 +52,7 @@ type NullClientAdapter struct {
 
 var (
 	_ ClientAdapter = (*NullClientAdapter)(nil)
-	_ PacketFilter = (*NullClientAdapter)(nil)
+	_ PacketFilter  = (*NullClientAdapter)(nil)
 )
 
 // ID returns client ID.
@@ -89,10 +89,13 @@ func (ca *NullClientAdapter) OnPing() (bool, error) {
 	return true, nil
 }
 
-// OnSubscribe does nothing.
-func (ca *NullClientAdapter) OnSubscribe() error {
-	// TODO:
-	return nil
+// OnSubscribe accepts all topics as "at most once" (QoS0).
+func (ca *NullClientAdapter) OnSubscribe(topics []Topic) ([]QoS, error) {
+	q := make([]QoS, len(topics))
+	for i := range topics {
+		q[i] = AtMostOnce
+	}
+	return q, nil
 }
 
 // OnUnsubscribe does nothing.

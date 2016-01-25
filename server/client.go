@@ -200,8 +200,35 @@ func (c *client) processPingReq(p *packet.PingReq) error {
 }
 
 func (c *client) processSubscribe(p *packet.Subscribe) error {
-	// TODO:
-	return errNotSuported
+	l := len(p.Topics)
+	t := make([]Topic, l)
+	for i, u := range p.Topics {
+		t[i].Filter = u.Filter
+		t[i].QoS = toQoS(u.RequestedQoS)
+	}
+	rq, err := c.ca.OnSubscribe(t)
+	if err != nil {
+		return err
+	}
+	// build SubACK packet.
+	rp := &packet.SubACK{
+		PacketID: p.PacketID,
+		Results:  make([]packet.SubscribeResult, l),
+	}
+	for i := range rp.Results {
+		rp.Results[i] = packet.SubscribeFailure
+	}
+	if rq != nil {
+		for i, q := range rq {
+			if i >= l {
+				break
+			}
+			rp.Results[i] = q.toSubscribeResult()
+		}
+	}
+	// send it.
+	c.sq <- rp
+	return nil
 }
 
 func (c *client) processUnsubscribe(p *packet.Unsubscribe) error {
