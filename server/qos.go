@@ -17,7 +17,7 @@ const (
 	ExactlyOnce
 
 	// Failure indicates "subscription failed".
-	Failure = 0x80
+	Failure QoS = 0x80
 )
 
 func (q QoS) String() string {
