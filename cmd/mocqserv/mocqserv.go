@@ -9,15 +9,15 @@ import (
 )
 
 type sadapter struct {
-	nextId int
+	nextID int
 }
 
 var _ server.Adapter = (*sadapter)(nil)
 
 func (sa *sadapter) Connect(srv *server.Server, c server.Client, p *packet.Connect) (server.ClientAdapter, error) {
 	log.Printf("CONNECT: %#v\n", p)
-	id := sa.nextId
-	sa.nextId++
+	id := sa.nextID
+	sa.nextID++
 	return &cadapter{
 		srv: srv,
 		cl:  c,
@@ -72,7 +72,7 @@ func (ca *cadapter) OnUnsubscribe(filters []string) error {
 }
 
 func (ca *cadapter) OnPublish(m *server.Message) error {
-	log.Printf("PUBLISH: topic=%s body=%s (id=%d)\n", m.Topic, string(m.Body), ca.id)
+	log.Printf("PUBLISH: topic=%s body=%s (id=%s)\n", m.Topic, string(m.Body), ca.id)
 	return nil
 }
 

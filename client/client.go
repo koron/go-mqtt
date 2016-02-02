@@ -45,7 +45,6 @@ type client struct {
 	conn net.Conn
 	r    packet.Reader
 	p    Param
-	df   DisconnectedFunc
 	log  *log.Logger
 
 	sl   sync.Mutex // send (conn) lock
@@ -55,10 +54,14 @@ type client struct {
 	ping  *waitop.WaitOp
 	subsc *waitop.WaitOp
 	unsub *waitop.WaitOp
+
+	// message recieve buffer.
 	msgc  *sync.Cond
 	msgs  []*Message
 	msgr  int
 	msgw  int
+
+	publock sync.Mutex
 }
 
 var _ Client = (*client)(nil)
@@ -271,8 +274,8 @@ loop:
 			break loop
 		}
 	}
-	if c.df != nil {
-		c.df(c.derr, c.p)
+	if c.p.OnDisconnect != nil {
+		c.p.OnDisconnect(c.derr, c.p)
 	}
 	c.r = nil
 }
@@ -312,11 +315,15 @@ func (c *client) procPublish(p *packet.Publish) error {
 	if m == nil {
 		return nil
 	}
+	if c.p.OnPublish != nil{
+		go c.emitOnPublish(m)
+		return nil
+	}
 	return c.put(m)
 }
 
+// put puts a message to ring buffer.
 func (c *client) put(m *Message) error {
-	// put to ring buffer.
 	c.msgc.L.Lock()
 	c.msgs[c.msgw] = m
 	if c.msgw++; c.msgw >= len(c.msgs) {
@@ -335,6 +342,12 @@ func (c *client) put(m *Message) error {
 		c.logDroppedMessage(dropped)
 	}
 	return nil
+}
+
+func (c *client) emitOnPublish(m *Message) {
+	c.publock.Lock()
+	defer c.publock.Unlock()
+	c.p.OnPublish(m)
 }
 
 func (c *client) logTemporaryError(nerr net.Error) {

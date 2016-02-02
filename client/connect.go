@@ -10,6 +10,13 @@ import (
 	"github.com/koron/go-mqtt/packet"
 )
 
+// PublishedFunc is called when receive a message.
+type PublishedFunc func(m *Message)
+
+// DisconnectedFunc is called when a connection was lost.
+// reason can be one of Reason or other errors.
+type DisconnectedFunc func(reason error, param Param)
+
 // Param represents connection parameters for MQTT client.
 type Param struct {
 	// Addr is URL to connect like "tcp://192.168.0.1:1883".
@@ -17,6 +24,13 @@ type Param struct {
 
 	// ID is used as MQTT's client ID.
 	ID string
+
+	// OnPublish is called when receive a PUBLISH message with independed
+	// goroutine.  If it is omitted, received messages are stored into buffer.
+	OnPublish PublishedFunc
+
+	// OnDisconnect is called when connection is disconnected.
+	OnDisconnect DisconnectedFunc
 
 	// Options is option parameters for connection.
 	Options *Options
@@ -128,12 +142,8 @@ func (r Reason) Error() string {
 	}
 }
 
-// DisconnectedFunc is called when a connection was lost.
-// reason can be one of Reason or other errors.
-type DisconnectedFunc func(reason error, param Param)
-
 // Connect connects to MQTT broker and returns a Client.
-func Connect(p Param, df DisconnectedFunc) (Client, error) {
+func Connect(p Param) (Client, error) {
 	u, err := p.url()
 	if err != nil {
 		return nil, err
@@ -175,7 +185,6 @@ func Connect(p Param, df DisconnectedFunc) (Client, error) {
 		conn: c,
 		r:    r,
 		p:    p,
-		df:   df,
 		log:  p.Options.Logger,
 	}
 	cl.start()

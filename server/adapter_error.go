@@ -31,6 +31,7 @@ var (
 		message: "not acceptable packet",
 	}
 
+	// ErrUnsupportedQoS uses when adapter detect unsupported QoS.
 	ErrUnsupportedQoS AdapterError = &adapterError{
 		message: "unsupported QoS",
 		cont:    true,
