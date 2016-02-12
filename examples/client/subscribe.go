@@ -23,7 +23,7 @@ func main() {
 		log.Fatalf("c1.Connect() failed: %v", err)
 	}
 	err = c1.Subscribe([]client.Topic{
-		client.Topic{Filter: "#", QoS: client.AtMostOnce},
+		{Filter: "#", QoS: client.AtMostOnce},
 	})
 	if err != nil {
 		log.Fatalf("c1.Subscribe() failed: %v", err)

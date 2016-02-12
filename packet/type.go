@@ -65,97 +65,97 @@ type typeDesc struct {
 }
 
 var typeDescs = []*typeDesc{
-	&typeDesc{
+	{
 		Type:  TReserved,
 		Name:  "RESERVED",
 		Desc:  "Reserved",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TConnect,
 		Name:  "CONNECT",
 		Desc:  "Client request to connect to Server",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TConnACK,
 		Name:  "CONNACK",
 		Desc:  "Connect acknowledgement",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TPublish,
 		Name:  "PUBLISH",
 		Desc:  "Publish message",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TPubACK,
 		Name:  "PUBACK",
 		Desc:  "Publish acknowledgement",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TPubRec,
 		Name:  "PUBREC",
 		Desc:  "Publish received (assured delivery part 1)",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TPubRel,
 		Name:  "PUBREL",
 		Desc:  "Publish release (assured delivery part 2)",
 		Flags: 2,
 	},
-	&typeDesc{
+	{
 		Type:  TPubComp,
 		Name:  "PUBCOMP",
 		Desc:  "Publish complete (assured delivery part 3)",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TSubscribe,
 		Name:  "SUBSCRIBE",
 		Desc:  "Client subscribe request",
 		Flags: 2,
 	},
-	&typeDesc{
+	{
 		Type:  TSubACK,
 		Name:  "SUBACK",
 		Desc:  "Subscribe acknowledgement",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TUnsubscribe,
 		Name:  "UNSUBSCRIBE",
 		Desc:  "Unsubscribe request",
 		Flags: 2,
 	},
-	&typeDesc{
+	{
 		Type:  TUnsubACK,
 		Name:  "UNSUBACK",
 		Desc:  "Unsubscribe acknowledgement",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TPingReq,
 		Name:  "PINGREQ",
 		Desc:  "PING request",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TPingResp,
 		Name:  "PINGRESP",
 		Desc:  "PING response",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TDisconnect,
 		Name:  "DISCONNECT",
 		Desc:  "Client is disconnecting",
 		Flags: 0,
 	},
-	&typeDesc{
+	{
 		Type:  TReserved2,
 		Name:  "RESERVED2",
 		Desc:  "Reserved",

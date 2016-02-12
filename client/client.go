@@ -56,10 +56,10 @@ type client struct {
 	unsub *waitop.WaitOp
 
 	// message recieve buffer.
-	msgc  *sync.Cond
-	msgs  []*Message
-	msgr  int
-	msgw  int
+	msgc *sync.Cond
+	msgs []*Message
+	msgr int
+	msgw int
 
 	publock sync.Mutex
 }
@@ -315,7 +315,7 @@ func (c *client) procPublish(p *packet.Publish) error {
 	if m == nil {
 		return nil
 	}
-	if c.p.OnPublish != nil{
+	if c.p.OnPublish != nil {
 		go c.emitOnPublish(m)
 		return nil
 	}
