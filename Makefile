@@ -13,6 +13,9 @@ lint:
 	go vet ./...
 	golint ./...
 
+reports:
+	find . -name *.go | xargs misspell
+
 deps:
 	go get -v -u -d -t ./...
 
