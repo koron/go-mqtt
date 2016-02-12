@@ -36,6 +36,9 @@ type Client interface {
 }
 
 var (
+	// ErrUnknownProtocol indicates connect adddress includes unknown protocol.
+	ErrUnknownProtocol = errors.New("unknown protocol")
+
 	// ErrTerminated indicates the operation is terminated.
 	ErrTerminated = errors.New("terminated")
 )
