@@ -21,10 +21,10 @@ func compareBytes(t *testing.T, actual, expected []byte) {
 	if la != lb {
 		if la > lb {
 			t.Errorf("len(actual)=%d > len(expected)=%d actual[%d]=%02x",
-			la, lb, lb, actual[lb])
+				la, lb, lb, actual[lb])
 		} else {
 			t.Errorf("len(actual)=%d < len(expected)=%d expected[%d]=%02x",
-			la, lb, la, expected[la])
+				la, lb, la, expected[la])
 		}
 	}
 }
@@ -41,10 +41,10 @@ func compareStrings(t *testing.T, actual, expected []string) {
 	if la != lb {
 		if la > lb {
 			t.Errorf("len(actual)=%d > len(expected)=%d actual[%d]=%q",
-			la, lb, lb, actual[lb])
+				la, lb, lb, actual[lb])
 		} else {
 			t.Errorf("len(actual)=%d < len(expected)=%d expected[%d]=%q",
-			la, lb, la, expected[la])
+				la, lb, la, expected[la])
 		}
 	}
 }

@@ -8,7 +8,7 @@ import (
 
 var (
 	errRejected = errors.New("rejected")
-	errDoFail = errors.New("do failed")
+	errDoFail   = errors.New("do failed")
 )
 
 func TestFulfill_goroutine(t *testing.T) {

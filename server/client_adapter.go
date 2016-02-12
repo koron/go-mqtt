@@ -2,7 +2,7 @@ package server
 
 import "github.com/koron/go-mqtt/packet"
 
-// PacketFilter filters all packets which recieve and send.
+// PacketFilter filters all packets which receive and send.
 type PacketFilter interface {
 	// PreProcess receives all packets after received and before it is
 	// processed.
@@ -24,10 +24,10 @@ type ClientAdapter interface {
 	// IsSessionPresent returns true, if previous session is reverted.
 	IsSessionPresent() bool
 
-	// OnDisconnect is called when recieve DISCONNECT packet.
+	// OnDisconnect is called when receive DISCONNECT packet.
 	OnDisconnect() error
 
-	// OnPing is called when recieve PINGREQ packet.  If it returns false,
+	// OnPing is called when receive PINGREQ packet.  If it returns false,
 	// PINGRESP is not sent.
 	OnPing() (bool, error)
 

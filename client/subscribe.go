@@ -32,7 +32,7 @@ func (e *SubscribeError) hasErrors() bool {
 // UnsubscribeError is detailed error for Unsubscribe()
 type UnsubscribeError struct {
 	// MismatchPacketID is set true, when detect mismatch of packet ID in ACK.
-	MismatchPacketID    bool
+	MismatchPacketID bool
 }
 
 func (e *UnsubscribeError) Error() string {

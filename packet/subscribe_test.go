@@ -77,9 +77,9 @@ func TestSubscribe(t *testing.T) {
 		t.Errorf("unexpected PacketID: %v", p.PacketID)
 	}
 	compareTopics(t, p.Topics, []Topic{
-		Topic{Filter: "go-mqtt", RequestedQoS: QAtMostOnce},
-		Topic{Filter: "/a/b/#/c", RequestedQoS: QAtLeastOnce},
-		Topic{Filter: "/a/b/#/cdd", RequestedQoS: QExactlyOnce},
+		{Filter: "go-mqtt", RequestedQoS: QAtMostOnce},
+		{Filter: "/a/b/#/c", RequestedQoS: QAtLeastOnce},
+		{Filter: "/a/b/#/cdd", RequestedQoS: QExactlyOnce},
 	})
 
 	// encode test.
