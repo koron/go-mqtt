@@ -58,7 +58,7 @@ func (srv *Server) ListenAndServe() error {
 	return srv.Serve(l)
 }
 
-// Serve accepts incomming connections on the Listener.
+// Serve accepts incoming connections on the Listener.
 func (srv *Server) Serve(l net.Listener) error {
 	defer l.Close()
 	srv.logger = srv.options().Logger

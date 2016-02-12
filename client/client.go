@@ -55,7 +55,7 @@ type client struct {
 	subsc *waitop.WaitOp
 	unsub *waitop.WaitOp
 
-	// message recieve buffer.
+	// message receive buffer.
 	msgc *sync.Cond
 	msgs []*Message
 	msgr int
