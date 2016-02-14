@@ -263,7 +263,7 @@ loop:
 			break loop
 		}
 		delay.Reset()
-		if err := c.dispatchPacket(p); err != nil {
+		if err := c.dispatch(p); err != nil {
 			c.stop(err)
 			break loop
 		}
