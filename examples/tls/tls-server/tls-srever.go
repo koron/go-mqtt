@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"time"
@@ -23,6 +24,9 @@ func (sa *sadapter) Connect(srv *server.Server, c server.Client, p *packet.Conne
 }
 
 func (sa *sadapter) Disconnect(srv *server.Server, ca server.ClientAdapter, err error) {
+	if ca == nil {
+		return
+	}
 	delete(sa.clients, ca.ID())
 }
 
@@ -32,11 +36,31 @@ func (sa *sadapter) SendToAll(topic string, body []byte) {
 	}
 }
 
+func loadTLSConfig(certFile, keyFile string) (*tls.Config, error) {
+	ca, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		Certificates: []tls.Certificate{ca},
+	}, nil
+}
+
 func main() {
+	tc, err := loadTLSConfig("../server.crt", "../server.key")
+	if err != nil {
+		log.Fatal("loadTLSConfig failed: ", err)
+	}
 	sa := &sadapter{
 		clients: map[string]*server.NullClientAdapter{},
 	}
-	s := &server.Server{Adapter: sa}
+	s := &server.Server{
+		Addr:    "tls://127.0.0.1:8883",
+		Adapter: sa,
+		Options: &server.Options{
+			TLSConfig: tc,
+		},
+	}
 	go func() {
 		count := 0
 		for {
