@@ -1,5 +1,6 @@
 # MQTT for golang
 
+[![Build Status](https://travis-ci.org/koron/go-mqtt.svg?branch=master)](https://travis-ci.org/koron/go-mqtt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/koron/go-mqtt)](https://goreportcard.com/report/github.com/koron/go-mqtt)
 
 Yet another MQTT packages for golang.
