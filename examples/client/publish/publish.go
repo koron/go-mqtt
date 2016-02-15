@@ -15,7 +15,7 @@ func main() {
 			KeepAlive:    60,
 			Logger:       log.New(os.Stderr, "MQTT-C", log.LstdFlags),
 		},
-	}, nil)
+	})
 	if err != nil {
 		log.Fatalf("Connect() failed: %v", err)
 	}

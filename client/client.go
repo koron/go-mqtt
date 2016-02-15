@@ -7,7 +7,9 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/koron/go-mqtt/internal/backoff"
 	"github.com/koron/go-mqtt/internal/waitop"
 	"github.com/koron/go-mqtt/packet"
 )
@@ -36,6 +38,9 @@ type Client interface {
 }
 
 var (
+	// ErrUnknownProtocol indicates connect adddress includes unknown protocol.
+	ErrUnknownProtocol = errors.New("unknown protocol")
+
 	// ErrTerminated indicates the operation is terminated.
 	ErrTerminated = errors.New("terminated")
 )
@@ -244,33 +249,22 @@ func (c *client) send(p packet.Packet) error {
 }
 
 func (c *client) recvLoop() {
+	delay := backoff.Exp{Min: time.Millisecond * 5}
 loop:
 	for {
-		rp, err := packet.SplitDecode(c.r)
+		p, err := packet.SplitDecode(c.r)
 		if err != nil {
-			nerr, ok := err.(net.Error)
-			if ok && nerr.Temporary() {
+			if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
 				c.logTemporaryError(nerr)
+				delay.Wait()
 				continue
 			}
 			c.stop(err)
 			break loop
 		}
-		switch p := rp.(type) {
-		case *packet.Publish:
-			err := c.procPublish(p)
-			if err != nil {
-				c.stop(err)
-				break loop
-			}
-		case *packet.SubACK:
-			c.subsc.Fulfill(p)
-		case *packet.UnsubACK:
-			c.unsub.Fulfill(p)
-		case *packet.PingResp:
-			c.ping.Fulfill(p)
-		default:
-			c.stop(errors.New("receive unexpected packet"))
+		delay.Reset()
+		if err := c.dispatch(p); err != nil {
+			c.stop(err)
 			break loop
 		}
 	}
@@ -278,6 +272,23 @@ loop:
 		c.p.OnDisconnect(c.derr, c.p)
 	}
 	c.r = nil
+}
+
+// dispatch dispatches received packet.
+func (c *client) dispatch(raw packet.Packet) error {
+	switch p := raw.(type) {
+	case *packet.Publish:
+		return c.procPublish(p)
+	case *packet.SubACK:
+		c.subsc.Fulfill(p)
+	case *packet.UnsubACK:
+		c.unsub.Fulfill(p)
+	case *packet.PingResp:
+		c.ping.Fulfill(p)
+	default:
+		return errors.New("receive unexpected packet")
+	}
+	return nil
 }
 
 func (c *client) publish0(retain bool, topic string, msg []byte) error {

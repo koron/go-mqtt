@@ -2,6 +2,7 @@ package waitop
 
 import (
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -148,12 +149,20 @@ func TestTerminated_AsyncOp_goroutine(t *testing.T) {
 
 func TestDoing(t *testing.T) {
 	op := New()
+	var wg1, wg2 sync.WaitGroup
+	wg1.Add(1)
+	wg2.Add(1)
 	go func() {
-		op.Do(func() error {
+		_, err := op.Do(func() error {
+			wg1.Done()
 			return nil
 		})
+		if err != ErrTerminated {
+			t.Error("unexpeced error: ", err)
+		}
+		wg2.Done()
 	}()
-	time.Sleep(time.Millisecond * 10)
+	wg1.Wait()
 	r, err := op.Do(func() error {
 		return nil
 	})
@@ -164,6 +173,7 @@ func TestDoing(t *testing.T) {
 		t.Errorf("unexpected result: %v", r)
 	}
 	op.Close()
+	wg2.Wait()
 }
 
 func TestNotDoing(t *testing.T) {

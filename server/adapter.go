@@ -23,7 +23,8 @@ var _ Adapter = (*NullAdapter)(nil)
 // Connect is called when a new client try to connect MQTT broker.
 func (a *NullAdapter) Connect(srv *Server, c Client, p *packet.Connect) (ClientAdapter, error) {
 	return &NullClientAdapter{
-		Client: c,
+		Client:   c,
+		ClientID: p.ClientID,
 	}, nil
 }
 

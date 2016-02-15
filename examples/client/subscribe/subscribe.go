@@ -18,7 +18,7 @@ func main() {
 			KeepAlive:    60,
 			Logger:       log.New(os.Stderr, "MQTT-C1", log.LstdFlags),
 		},
-	}, nil)
+	})
 	if err != nil {
 		log.Fatalf("c1.Connect() failed: %v", err)
 	}
@@ -50,7 +50,7 @@ func main() {
 			KeepAlive:    60,
 			Logger:       log.New(os.Stderr, "MQTT-C2", log.LstdFlags),
 		},
-	}, nil)
+	})
 	if err != nil {
 		log.Fatalf("c2.Connect() failed: %v", err)
 	}

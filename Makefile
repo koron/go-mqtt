@@ -1,20 +1,22 @@
-PACKAGES = \
-	./internal/... \
-	./packet/... \
-	./client/... \
-	./server/...
-
-default: test lint
+default: test
 
 test:
-	go test $(PACKAGES)
+	go test ./...
 
 lint:
 	go vet ./...
+	@echo ""
 	golint ./...
 
-reports:
-	find . -name *.go | xargs misspell
+report:
+	@echo "misspell"
+	@find . -name *.go | xargs misspell
+	@echo ""
+	-gocyclo.exe -over 9 -avg .
+	@echo ""
+	go vet ./...
+	@echo ""
+	golint ./...
 
 deps:
 	go get -v -u -d -t ./...

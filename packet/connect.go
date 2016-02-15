@@ -101,25 +101,9 @@ func (p *Connect) Decode(b []byte) error {
 	if err != nil {
 		return err
 	}
-	protocolName, err := d.readString()
+	version, err := p.decodeVersion(d)
 	if err != nil {
 		return err
-	}
-	version, err := d.readByte()
-	if err != nil {
-		return err
-	}
-	switch version {
-	case protocolVersion3:
-		if protocolName != protocolName3 {
-			return errors.New("mismatch protocol name and version")
-		}
-	case protocolVersion4:
-		if protocolName != protocolName4 {
-			return errors.New("mismatch protocol name and version")
-		}
-	default:
-		return errors.New("unsupported protocol version")
 	}
 	connectFlags, err := d.readByte()
 	if err != nil {
@@ -188,6 +172,30 @@ func (p *Connect) Decode(b []byte) error {
 		WillMessage:  willMessage,
 	}
 	return nil
+}
+
+func (p *Connect) decodeVersion(d *decoder) (uint8, error) {
+	protocolName, err := d.readString()
+	if err != nil {
+		return 0, err
+	}
+	version, err := d.readByte()
+	if err != nil {
+		return 0, err
+	}
+	switch version {
+	case protocolVersion3:
+		if protocolName != protocolName3 {
+			return 0, errors.New("mismatch protocol name and version")
+		}
+	case protocolVersion4:
+		if protocolName != protocolName4 {
+			return 0, errors.New("mismatch protocol name and version")
+		}
+	default:
+		return 0, errors.New("unsupported protocol version")
+	}
+	return version, nil
 }
 
 // ConnACK represents CONNACK packet.

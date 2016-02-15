@@ -29,14 +29,14 @@ func (exp *Exp) Reset() {
 
 func (exp *Exp) min() time.Duration {
 	if exp.Min <= 0 {
-		return time.Second
+		return time.Millisecond
 	}
 	return exp.Min
 }
 
 func (exp *Exp) max() time.Duration {
 	if exp.Max <= 0 {
-		return time.Millisecond
+		return time.Second
 	}
 	return exp.Max
 }

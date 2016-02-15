@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"errors"
 	"log"
 	"net"
@@ -15,6 +16,9 @@ import (
 var (
 	// ErrInvalidCloudAdapter indicates Adapter#Connect() returns invalid CloudAdapter.
 	ErrInvalidCloudAdapter = errors.New("invalid CloudAdapter")
+
+	// ErrUnknownProtocol indicates connect adddress includes unknown protocol.
+	ErrUnknownProtocol = errors.New("unknown protocol")
 )
 
 // Server is a instance of MQTT server.
@@ -51,9 +55,20 @@ func (srv *Server) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	l, err := net.Listen(u.Scheme, u.Host)
-	if err != nil {
-		return err
+	var l net.Listener
+	switch u.Scheme {
+	case "tcp":
+		l, err = net.Listen(u.Scheme, u.Host)
+		if err != nil {
+			return err
+		}
+	case "ssl", "tcps", "tls":
+		l, err = tls.Listen("tcp", u.Host, srv.Options.TLSConfig)
+		if err != nil {
+			return err
+		}
+	default:
+		return ErrUnknownProtocol
 	}
 	return srv.Serve(l)
 }
@@ -66,10 +81,10 @@ func (srv *Server) Serve(l net.Listener) error {
 	srv.listener = l
 	srv.wg = sync.WaitGroup{}
 	srv.cs = make(map[*client]bool)
-	srv.logServerStart(l)
+	srv.logServerStart()
 	delay := backoff.Exp{Min: time.Millisecond * 5}
 	for {
-		conn, err := l.Accept()
+		conn, err := srv.listener.Accept()
 		select {
 		case <-srv.quit:
 			return nil
@@ -119,8 +134,8 @@ func (srv *Server) logf(fmt string, a ...interface{}) {
 	srv.logger.Printf(fmt, a...)
 }
 
-func (srv *Server) logServerStart(l net.Listener) {
-	srv.logf("server starts to listen: %s\n", l.Addr().String())
+func (srv *Server) logServerStart() {
+	srv.logf("server starts to listen: %s\n", srv.listener.Addr().String())
 }
 
 func (srv *Server) logTemporaryError(err net.Error, d *backoff.Exp, c *client) {
