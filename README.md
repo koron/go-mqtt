@@ -1,5 +1,7 @@
 # MQTT for golang
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/koron/go-mqtt)](https://goreportcard.com/report/github.com/koron/go-mqtt)
+
 Yet another MQTT packages for golang.
 
 This provides three MQTT related packages:
