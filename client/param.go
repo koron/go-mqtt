@@ -68,7 +68,7 @@ type Options struct {
 	Will         *Will
 
 	ConnectTimeout time.Duration
-	TLSConfig *tls.Config
+	TLSConfig      *tls.Config
 
 	Logger *log.Logger
 }
