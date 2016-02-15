@@ -1,9 +1,3 @@
-PACKAGES = \
-	./internal/... \
-	./packet/... \
-	./client/... \
-	./server/...
-
 default: test
 
 test:
