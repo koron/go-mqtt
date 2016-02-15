@@ -7,7 +7,7 @@ PACKAGES = \
 default: test
 
 test:
-	go test $(PACKAGES)
+	go test ./...
 
 lint:
 	go vet ./...
