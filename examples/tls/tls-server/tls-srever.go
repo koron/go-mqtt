@@ -71,7 +71,6 @@ func main() {
 			log.Printf("sent: %s", m)
 
 		}
-		fmt.Println("HERE")
 	}()
 	s.ListenAndServe()
 }
