@@ -1,7 +1,7 @@
 default: test
 
 test:
-	go test ./...
+	go test -v ./...
 
 lint:
 	go vet ./...
@@ -12,7 +12,7 @@ report:
 	@echo "misspell"
 	@find . -name *.go | xargs misspell
 	@echo ""
-	-gocyclo.exe -over 9 -avg .
+	-gocyclo -over 9 -avg .
 	@echo ""
 	go vet ./...
 	@echo ""
