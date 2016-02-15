@@ -66,10 +66,10 @@ func (srv *Server) Serve(l net.Listener) error {
 	srv.listener = l
 	srv.wg = sync.WaitGroup{}
 	srv.cs = make(map[*client]bool)
-	srv.logServerStart(l)
+	srv.logServerStart()
 	delay := backoff.Exp{Min: time.Millisecond * 5}
 	for {
-		conn, err := l.Accept()
+		conn, err := srv.listener.Accept()
 		select {
 		case <-srv.quit:
 			return nil
@@ -119,8 +119,8 @@ func (srv *Server) logf(fmt string, a ...interface{}) {
 	srv.logger.Printf(fmt, a...)
 }
 
-func (srv *Server) logServerStart(l net.Listener) {
-	srv.logf("server starts to listen: %s\n", l.Addr().String())
+func (srv *Server) logServerStart() {
+	srv.logf("server starts to listen: %s\n", srv.listener.Addr().String())
 }
 
 func (srv *Server) logTemporaryError(err net.Error, d *backoff.Exp, c *client) {
