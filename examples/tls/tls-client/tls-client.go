@@ -25,7 +25,7 @@ func loadCertPool(path string) (*x509.CertPool, error) {
 }
 
 func main() {
-	cp, err := loadCertPool("../server.crt")
+	cp, err := loadCertPool("../keys/cacert.pem")
 	if err != nil {
 		log.Fatal("loadCertPool failed: ", err)
 	}
@@ -38,8 +38,7 @@ func main() {
 			CleanSession: true,
 			KeepAlive:    60,
 			TLSConfig: &tls.Config{
-				RootCAs:            cp,
-				InsecureSkipVerify: true,
+				RootCAs: cp,
 			},
 		},
 	})

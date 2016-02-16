@@ -47,7 +47,7 @@ func loadTLSConfig(certFile, keyFile string) (*tls.Config, error) {
 }
 
 func main() {
-	tc, err := loadTLSConfig("../server.crt", "../server.key")
+	tc, err := loadTLSConfig("../keys/test_cert.pem", "../keys/test_key.pem")
 	if err != nil {
 		log.Fatal("loadTLSConfig failed: ", err)
 	}
