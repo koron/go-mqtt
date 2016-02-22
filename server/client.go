@@ -14,6 +14,9 @@ import (
 type Client interface {
 	// Publish publishes a message to the client.
 	Publish(qos QoS, retain bool, topic string, body []byte) error
+
+	// Close disconnects the client.
+	Close()
 }
 
 type client struct {
@@ -25,6 +28,11 @@ type client struct {
 	rd   packet.Reader
 	ca   ClientAdapter
 	pf   PacketFilter
+
+	// monitorLoop related.
+	md time.Duration
+	ml sync.Mutex
+	mt *time.Timer
 }
 
 var _ Client = (*client)(nil)
@@ -58,6 +66,10 @@ func (c *client) serve() {
 		return
 	}
 	c.srv.clientOnStart(c)
+	if !c.srv.options().DisableMonitor {
+		c.wg.Add(1)
+		go c.monitorLoop()
+	}
 	c.wg.Add(1)
 	go c.sendLoop()
 	err = c.recvLoop()
@@ -92,6 +104,7 @@ func (c *client) establish() error {
 	if err != nil {
 		return err
 	}
+	c.md = time.Second * time.Duration(p.KeepAlive)
 	return nil
 }
 
@@ -105,6 +118,39 @@ func (c *client) receiveConnect() (*packet.Connect, error) {
 		return nil, err
 	}
 	return p, nil
+}
+
+func (c *client) monitorLoop() {
+	defer func() {
+		// stop timer and mark WaitGroup as done.
+		c.ml.Lock()
+		c.mt.Stop()
+		c.mt = nil
+		c.ml.Unlock()
+		c.wg.Done()
+	}()
+
+	c.ml.Lock()
+	c.mt = time.NewTimer(c.md)
+	c.ml.Unlock()
+	for {
+		select {
+		case <-c.quit:
+			return
+		case <-c.mt.C:
+			c.terminate()
+			return
+		}
+	}
+}
+
+// monitorExtend resets timer of expiration monitor.
+func (c *client) monitorExtend() {
+	c.ml.Lock()
+	if c.mt != nil {
+		c.mt.Reset(c.md)
+	}
+	c.ml.Unlock()
 }
 
 func (c *client) sendLoop() {
@@ -143,6 +189,7 @@ func (c *client) recvLoop() error {
 			return err
 		}
 		delay.Reset()
+		c.monitorExtend()
 		err = c.process(p)
 		if err != nil {
 			if aerr, ok := err.(AdapterError); ok {
@@ -325,4 +372,8 @@ func (c *client) publish0(retain bool, topic string, body []byte) error {
 	}
 	c.sq <- p
 	return nil
+}
+
+func (c *client) Close() {
+	c.terminate()
 }

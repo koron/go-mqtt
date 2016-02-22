@@ -43,11 +43,14 @@ func Connect(p Param) (Client, error) {
 		return nil, ack.ReturnCode
 	}
 
+	opts := p.options()
 	cl := &client{
 		conn: c,
+		quit: make(chan bool, 1),
 		r:    r,
 		p:    p,
-		log:  p.options().Logger,
+		log:  opts.Logger,
+		kd:   opts.keepAliveInterval(),
 	}
 	cl.start()
 	return cl, nil

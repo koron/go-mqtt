@@ -9,6 +9,9 @@ import (
 type Options struct {
 	TLSConfig *tls.Config
 	Logger    *log.Logger
+
+	// DisableMonitor disables embedded disconnenction detector or so.
+	DisableMonitor bool
 }
 
 // DefaultOptions is used as Server#Options for default.
