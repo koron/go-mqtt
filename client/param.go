@@ -67,6 +67,9 @@ type Options struct {
 	KeepAlive    uint16
 	Will         *Will
 
+	// DisableAutoKeepAlive disables auto ping to keep alive.
+	DisableAutoKeepAlive bool
+
 	ConnectTimeout time.Duration
 	TLSConfig      *tls.Config
 
@@ -101,10 +104,19 @@ func (o *Options) connectPacket(id string) *packet.Connect {
 	return p
 }
 
+func (o *Options) keepAliveInterval() time.Duration {
+	const faster = time.Millisecond * 500
+	d := time.Second * time.Duration(o.KeepAlive)
+	if d <= faster {
+		return d
+	}
+	return d - faster
+}
+
 // DefaultOptions represents default values which used for when Connect()'s
 // opts argument is nil.
 var DefaultOptions = &Options{
 	Version:      4,
 	CleanSession: true,
-	KeepAlive:    60,
+	KeepAlive:    30,
 }

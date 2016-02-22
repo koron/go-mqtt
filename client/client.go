@@ -48,6 +48,8 @@ var (
 // client implements a simple MQTT client.
 type client struct {
 	conn net.Conn
+	wg   sync.WaitGroup
+	quit chan bool
 	r    packet.Reader
 	p    Param
 	log  *log.Logger
@@ -67,6 +69,11 @@ type client struct {
 	msgw int
 
 	publock sync.Mutex
+
+	// auto keep aliving
+	kd time.Duration
+	kl sync.Mutex
+	kt *time.Timer
 }
 
 var _ Client = (*client)(nil)
@@ -193,6 +200,9 @@ func (c *client) start() {
 	c.unsub = waitop.New()
 	c.msgc = sync.NewCond(new(sync.Mutex))
 	c.msgs = make([]*Message, 32)
+	if !c.p.options().DisableAutoKeepAlive {
+		go c.keepAliveLoop()
+	}
 	go c.recvLoop()
 }
 
@@ -207,6 +217,7 @@ func (c *client) stopRaw(reason error) error {
 	if c.conn == nil {
 		return nil
 	}
+	close(c.quit)
 	err := c.conn.Close()
 	c.conn = nil
 	c.ping.Close()
@@ -245,7 +256,39 @@ func (c *client) send(p packet.Packet) error {
 	if err != nil {
 		return err
 	}
-	return c.sendRaw(b)
+	err = c.sendRaw(b)
+	if err != nil {
+		return err
+	}
+	c.keepAliveExtend()
+	return nil
+}
+
+func (c *client) keepAliveLoop() {
+	c.kl.Lock()
+	c.kt = time.NewTimer(c.kd)
+	c.kl.Unlock()
+loop:
+	for {
+		select {
+		case <-c.quit:
+			break loop
+		case <-c.kt.C:
+			go c.Ping()
+		}
+	}
+	c.kl.Lock()
+	c.kt.Stop()
+	c.kt = nil
+	c.kl.Unlock()
+}
+
+func (c *client) keepAliveExtend() {
+	c.kl.Lock()
+	if c.kt != nil {
+		c.kt.Reset(c.kd)
+	}
+	c.kl.Unlock()
 }
 
 func (c *client) recvLoop() {
