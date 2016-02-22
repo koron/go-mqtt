@@ -157,7 +157,7 @@ func (srv *Server) logEstablishFailure(c *client, err error) {
 }
 
 func (srv *Server) logSendPacketError(c *client, p packet.Packet, err error) {
-	srv.logf("failed to send packet;%#v to client;%s: %v", c.id, p, err)
+	srv.logf("failed to send packet;%#v to client;%s: %v", c.id(), p, err)
 }
 
 func (srv *Server) adapter() Adapter {

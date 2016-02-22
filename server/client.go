@@ -64,8 +64,11 @@ func (c *client) serve() {
 		return
 	}
 	c.srv.clientOnStart(c)
-	c.wg.Add(2)
-	go c.monitorLoop()
+	if !c.srv.options().DisableMonitor {
+		c.wg.Add(1)
+		go c.monitorLoop()
+	}
+	c.wg.Add(1)
 	go c.sendLoop()
 	err = c.recvLoop()
 	close(c.sq)
