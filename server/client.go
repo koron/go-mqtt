@@ -28,9 +28,11 @@ type client struct {
 	rd   packet.Reader
 	ca   ClientAdapter
 	pf   PacketFilter
-	md   time.Duration // monitor duration:
-	ml   sync.Mutex
-	mt   *time.Timer
+
+	// monitorLoop related.
+	md time.Duration
+	ml sync.Mutex
+	mt *time.Timer
 }
 
 var _ Client = (*client)(nil)
