@@ -86,7 +86,7 @@ func (p *Connect) Encode() ([]byte, error) {
 	return encode(
 		header,
 		encodeString(protocolName),
-		[]byte{byte(p.Version), connectFlags},
+		[]byte{p.Version, connectFlags},
 		encodeUint16(p.KeepAlive),
 		clientID,
 		willTopic,
@@ -160,7 +160,7 @@ func (p *Connect) Decode(b []byte) error {
 	}
 	*p = Connect{
 		ClientID:     clientID,
-		Version:      uint8(version),
+		Version:      version,
 		Username:     username,
 		Password:     password,
 		CleanSession: cleanSession,
