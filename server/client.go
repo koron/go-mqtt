@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/koron/go-mqtt/internal/backoff"
@@ -22,12 +23,15 @@ type Client interface {
 type client struct {
 	srv  *Server
 	conn net.Conn
-	wg   sync.WaitGroup
-	quit chan bool
-	sq   chan packet.Packet
-	rd   packet.Reader
-	ca   ClientAdapter
-	pf   PacketFilter
+
+	wg     sync.WaitGroup
+	quit   chan bool
+	quited int32
+
+	sq chan packet.Packet
+	rd packet.Reader
+	ca ClientAdapter
+	pf PacketFilter
 
 	// monitorLoop related.
 	md time.Duration
@@ -48,6 +52,9 @@ func newClient(srv *Server, conn net.Conn) *client {
 }
 
 func (c *client) terminate() {
+	if !atomic.CompareAndSwapInt32(&c.quited, 0, 1) {
+		return
+	}
 	close(c.quit)
 	c.conn.Close()
 }
@@ -59,6 +66,7 @@ func (c *client) id() string {
 func (c *client) serve() {
 	err := c.establish()
 	if err != nil {
+		c.quited = 1
 		close(c.quit)
 		c.conn.Close()
 		close(c.sq)
@@ -186,6 +194,7 @@ func (c *client) recvLoop() error {
 				delay.Wait()
 				continue
 			}
+			c.terminate()
 			return err
 		}
 		delay.Reset()
@@ -198,9 +207,11 @@ func (c *client) recvLoop() error {
 					continue
 				}
 				if aerr == ErrDisconnected {
+					c.terminate()
 					return nil
 				}
 			}
+			c.terminate()
 			return err
 		}
 	}
