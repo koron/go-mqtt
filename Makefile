@@ -11,11 +11,14 @@ lint:
 	@echo ""
 	golint ./...
 
+cyclo:
+	-gocyclo -top 10 -avg .
+
 report:
 	@echo "misspell"
 	@find . -name *.go | xargs misspell
 	@echo ""
-	-gocyclo -over 9 -avg .
+	-gocyclo -over 14 -avg .
 	@echo ""
 	go vet ./...
 	@echo ""
@@ -24,4 +27,4 @@ report:
 deps:
 	go get -v -u -d -t ./...
 
-.PHONY: test test-full lint report deps
+.PHONY: test test-full lint cyclo report deps
