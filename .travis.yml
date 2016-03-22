@@ -9,5 +9,5 @@ install:
   - go get github.com/golang/lint/golint
 
 script:
-  - make test
+  - make test-full
   - make report

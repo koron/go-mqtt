@@ -3,6 +3,9 @@ default: test
 test:
 	go test ./...
 
+test-full:
+	go test -v -race ./...
+
 lint:
 	go vet ./...
 	@echo ""
@@ -21,4 +24,4 @@ report:
 deps:
 	go get -v -u -d -t ./...
 
-.PHONY: test lint deps
+.PHONY: test test-full lint report deps
