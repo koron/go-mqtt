@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/koron/go-mqtt/internal/backoff"
@@ -19,6 +20,19 @@ var (
 
 	// ErrUnknownProtocol indicates connect adddress includes unknown protocol.
 	ErrUnknownProtocol = errors.New("unknown protocol")
+
+	// ErrAlreadyServerd indicates the server is served already.
+	ErrAlreadyServerd = errors.New("server served already")
+
+	// ErrNotServing indicates the server is not under serving.
+	ErrNotServing = errors.New("server is not serving")
+)
+
+const (
+	none int32 = iota
+	starting
+	running
+	closed
 )
 
 // Server is a instance of MQTT server.
@@ -27,6 +41,7 @@ type Server struct {
 	Adapter Adapter
 	Options *Options
 
+	st        int32
 	logger   *log.Logger
 	quit     chan bool
 	listener net.Listener
@@ -70,23 +85,35 @@ func (srv *Server) ListenAndServe() error {
 	default:
 		return ErrUnknownProtocol
 	}
-	return srv.Serve(l)
+	err = srv.Serve(l)
+	if err != nil {
+		if err == ErrAlreadyServerd {
+			l.Close()
+		}
+		return err
+	}
+	return nil
 }
 
 // Serve accepts incoming connections on the Listener.
 func (srv *Server) Serve(l net.Listener) error {
-	defer l.Close()
+	if !atomic.CompareAndSwapInt32(&srv.st, none, starting) {
+		return ErrAlreadyServerd
+	}
 	srv.logger = srv.options().Logger
 	srv.quit = make(chan bool, 1)
 	srv.listener = l
 	srv.wg = sync.WaitGroup{}
 	srv.cs = make(map[*client]bool)
+
+	atomic.StoreInt32(&srv.st, running)
 	srv.logServerStart()
 	delay := backoff.Exp{Min: time.Millisecond * 5}
 	for {
 		conn, err := srv.listener.Accept()
 		select {
 		case <-srv.quit:
+			go srv.terminateAllClients()
 			return nil
 		default:
 		}
@@ -96,6 +123,10 @@ func (srv *Server) Serve(l net.Listener) error {
 				delay.Wait()
 				continue
 			}
+			if atomic.CompareAndSwapInt32(&srv.st, running, closed) {
+				srv.listener.Close()
+			}
+			go srv.terminateAllClients()
 			return err
 		}
 		delay.Reset()
@@ -113,18 +144,22 @@ func (srv *Server) Serve(l net.Listener) error {
 // Close terminates the server by shutting down all the client connections and
 // closing.
 func (srv *Server) Close() error {
+	if !atomic.CompareAndSwapInt32(&srv.st, running, closed) {
+		return ErrNotServing
+	}
 	// terminate server.
 	close(srv.quit)
 	srv.listener.Close()
-	// terminate all clients
+	srv.wg.Wait()
+	return nil
+}
+
+func (srv *Server) terminateAllClients() {
 	srv.cl.Lock()
 	for c := range srv.cs {
 		c.terminate()
 	}
 	srv.cl.Unlock()
-	// wait to terminate all clients.
-	srv.wg.Wait()
-	return nil
 }
 
 func (srv *Server) logf(fmt string, a ...interface{}) {
