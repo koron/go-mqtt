@@ -170,7 +170,7 @@ func (srv *Server) logf(fmt string, a ...interface{}) {
 }
 
 func (srv *Server) logServerStart() {
-	srv.logf("server starts to listen: %s\n", srv.listener.Addr().String())
+	srv.logf("MQTT server listen on: %s\n", srv.listener.Addr().String())
 }
 
 func (srv *Server) logTemporaryError(err net.Error, d *backoff.Exp, c *client) {
