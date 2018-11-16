@@ -316,6 +316,11 @@ func (c *client) processPublish(p *packet.Publish) error {
 	if err != nil {
 		return err
 	}
+	if m.QoS.needPubACK() {
+		c.sq <- &packet.PubACK{
+			PacketID: p.PacketID,
+		}
+	}
 	return nil
 }
 
