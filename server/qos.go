@@ -59,6 +59,19 @@ func (q QoS) qos() packet.QoS {
 	}
 }
 
+func (q QoS) needPubACK() bool {
+	switch q {
+	case AtLeastOnce:
+		return false
+	case AtMostOnce:
+		return true
+	case ExactlyOnce:
+		return true
+	default:
+		return false
+	}
+}
+
 func toQoS(v packet.QoS) QoS {
 	switch v {
 	case packet.QAtMostOnce:
