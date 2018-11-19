@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -74,6 +75,9 @@ type client struct {
 	kd time.Duration
 	kl sync.Mutex
 	kt *time.Timer
+
+	wl sync.RWMutex
+	wt map[packet.ID]*waitop.WaitOp
 }
 
 var _ Client = (*client)(nil)
@@ -162,10 +166,12 @@ func (c *client) Unsubscribe(topics []string) error {
 }
 
 func (c *client) Publish(qos QoS, retain bool, topic string, msg []byte) error {
-	// FIXME: support AtLeastOnce and ExactlyOnce QoS
+	// FIXME: support ExactlyOnce QoS
 	switch qos {
 	case AtMostOnce:
 		return c.publish0(retain, topic, msg)
+	case AtLeastOnce:
+		return c.Publish1(context.Background(), retain, topic, msg)
 	default:
 		return errors.New("unsupported QoS")
 	}
@@ -322,6 +328,8 @@ func (c *client) dispatch(raw packet.Packet) error {
 	switch p := raw.(type) {
 	case *packet.Publish:
 		return c.procPublish(p)
+	case *packet.PubACK:
+		c.doneWaitOp(p.PacketID)
 	case *packet.SubACK:
 		c.subsc.Fulfill(p)
 	case *packet.UnsubACK:
@@ -342,6 +350,59 @@ func (c *client) publish0(retain bool, topic string, msg []byte) error {
 		Payload:   msg,
 	}
 	return c.send(p)
+}
+
+// Publish1 publishes a message with QoS=1 (at least once). This blocks until
+// receive PubACK or context is exceeded.
+func (c *client) Publish1(ctx context.Context, retain bool, topic string, msg []byte) error {
+	id := c.emitID()
+	w, err := c.newWaitOp(id)
+	if err != nil {
+		return err
+	}
+	defer c.closeWaitOp(id)
+	// FIXME: support context
+	_, err = w.Do(func() error {
+		return c.send(&packet.Publish{
+			QoS:       AtLeastOnce.qos(),
+			Retain:    retain,
+			TopicName: topic,
+			PacketID:  id,
+			Payload:   msg,
+		})
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) newWaitOp(id packet.ID) (*waitop.WaitOp, error) {
+	c.wl.Lock()
+	defer c.wl.Unlock()
+	if _, ok := c.wt[id]; ok {
+		return nil, fmt.Errorf("duplicated wait ID: %d", id)
+	}
+	w := waitop.New()
+	c.wt[id] = w
+	return w, nil
+}
+
+func (c *client) doneWaitOp(id packet.ID) {
+	c.wl.RLock()
+	defer c.wl.RUnlock()
+	w, ok := c.wt[id]
+	if !ok {
+		// FIXME: log ignore Packet ID.
+		return
+	}
+	w.Fulfill(id)
+}
+
+func (c *client) closeWaitOp(id packet.ID) {
+	c.wl.Lock()
+	delete(c.wt, id)
+	c.wl.Unlock()
 }
 
 func (c *client) emitID() packet.ID {
