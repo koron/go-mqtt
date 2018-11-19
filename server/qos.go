@@ -22,10 +22,10 @@ const (
 
 func (q QoS) String() string {
 	switch q {
-	case AtLeastOnce:
-		return "at least once"
 	case AtMostOnce:
 		return "at most once"
+	case AtLeastOnce:
+		return "at least once"
 	case ExactlyOnce:
 		return "exactly once"
 	default:
@@ -48,10 +48,10 @@ func (q QoS) toSubscribeResult() packet.SubscribeResult {
 
 func (q QoS) qos() packet.QoS {
 	switch q {
-	case AtLeastOnce:
-		return packet.QAtLeastOnce
 	case AtMostOnce:
 		return packet.QAtMostOnce
+	case AtLeastOnce:
+		return packet.QAtLeastOnce
 	case ExactlyOnce:
 		return packet.QExactlyOnce
 	default:
@@ -61,9 +61,9 @@ func (q QoS) qos() packet.QoS {
 
 func (q QoS) needPubACK() bool {
 	switch q {
-	case AtLeastOnce:
-		return false
 	case AtMostOnce:
+		return false
+	case AtLeastOnce:
 		return true
 	case ExactlyOnce:
 		return true
