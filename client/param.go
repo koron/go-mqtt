@@ -73,6 +73,8 @@ type Options struct {
 	ConnectTimeout time.Duration
 	TLSConfig      *tls.Config
 
+	WSOrigin string
+
 	Logger *log.Logger
 }
 
@@ -111,6 +113,34 @@ func (o *Options) keepAliveInterval() time.Duration {
 		return d
 	}
 	return d - faster
+}
+
+func (o *Options) dialer() *net.Dialer {
+	return &net.Dialer{Timeout: o.ConnectTimeout}
+}
+
+func (o *Options) wsOrigin(u *url.URL) string {
+	if o.WSOrigin != "" {
+		return o.WSOrigin
+	}
+	return wsOrigin(u)
+}
+
+func  wsOrigin(u *url.URL) string {
+	v := *u
+	// convert schema.
+	if v.Scheme == "wss" {
+		v.Scheme = "https"
+	} else {
+		v.Scheme = "http"
+	}
+	// keep user and host parts, then reset other parts.
+	v.Opaque = ""
+	v.Path = ""
+	v.ForceQuery = false
+	v.RawQuery = ""
+	v.Fragment = ""
+	return v.String()
 }
 
 // DefaultOptions represents default values which used for when Connect()'s
