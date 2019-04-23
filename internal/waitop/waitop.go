@@ -77,6 +77,8 @@ func (w *WaitOp) Do(f AsyncOp) (interface{}, error) {
 	return v, err
 }
 
+// TODO: support DoWithContext()
+
 func (w *WaitOp) done(v interface{}, err error) error {
 	rerr := ErrNotDoing
 	w.c.L.Lock()

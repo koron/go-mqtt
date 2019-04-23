@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 
+	"github.com/koron/go-mqtt/internal/waitop"
 	"github.com/koron/go-mqtt/packet"
 )
 
@@ -51,6 +52,7 @@ func Connect(p Param) (Client, error) {
 		p:    p,
 		log:  opts.Logger,
 		kd:   opts.keepAliveInterval(),
+		wt:   map[packet.ID]*waitop.WaitOp{},
 	}
 	cl.start()
 	return cl, nil
