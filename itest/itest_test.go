@@ -26,6 +26,7 @@ type Server struct {
 	s  *server.Server
 	wg sync.WaitGroup
 	cn int
+	mu sync.Mutex
 }
 
 // NewServer creates new server.Server for test.
@@ -67,6 +68,8 @@ func (srv *Server) Stop() {
 
 // Connect connects a client to test server.
 func (srv *Server) Connect(tb testing.TB, p client.Param) *Client {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
 	c0 := &Client{}
 	if p.Addr == "" {
 		p.Addr = srv.s.Addr
@@ -75,6 +78,7 @@ func (srv *Server) Connect(tb testing.TB, p client.Param) *Client {
 		p.ID = fmt.Sprintf("%s-%d", tb.Name(), srv.cn)
 		srv.cn++
 	}
+	c0.ID = p.ID
 	if p.OnDisconnect == nil {
 		p.OnDisconnect = c0.OnDisconnect
 	}
@@ -91,6 +95,7 @@ func (srv *Server) Connect(tb testing.TB, p client.Param) *Client {
 // Client is MQTT client object for test.
 type Client struct {
 	C  client.Client
+	ID string
 	mu sync.Mutex
 
 	disconnectReason error
@@ -108,4 +113,13 @@ func (c *Client) DisconnectReason() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.disconnectReason
+}
+
+// Disconnect disconnects from the server.
+func (c *Client) Disconnect(tb testing.TB, force bool) {
+	err := c.C.Disconnect(force)
+	if err != nil {
+		tb.Helper()
+		tb.Fatalf("Client.Disconnect() failed: id=%s: %s", c.ID, err)
+	}
 }
