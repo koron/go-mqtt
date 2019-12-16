@@ -1,56 +1,28 @@
 package itest
 
 import (
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/koron/go-mqtt/client"
-	"github.com/koron/go-mqtt/server"
 )
 
 func TestAutoDisconnect(t *testing.T) {
-	var wg sync.WaitGroup
-	srv := server.Server{}
-	l := newListener(t)
+	t.Parallel()
 
-	wg.Add(1)
-	go func() {
-		err := srv.Serve(l)
-		if err != nil {
-			t.Fatal("Serve is failed: ", err)
-		}
-		wg.Done()
-	}()
+	srv := NewServer(t, nil, nil).Start()
 
-	time.Sleep(time.Millisecond * 100)
-
-	var disconnReason error
-	var mu sync.Mutex
-	_, err := client.Connect(client.Param{
-		Addr: "tcp://" + l.Addr().String(),
-		OnDisconnect: func(reason error, param client.Param) {
-			mu.Lock()
-			disconnReason = reason
-			mu.Unlock()
-		},
-		ID: t.Name(),
+	c0 := srv.Connect(t, client.Param{
 		Options: &client.Options{
 			KeepAlive:            2,
 			DisableAutoKeepAlive: true,
 		},
 	})
-	if err != nil {
-		t.Fatal("client.Connect failed: ", err)
-	}
 
 	time.Sleep(time.Second * 3)
 
-	mu.Lock()
-	if disconnReason == nil {
+	if c0.DisconnectReason() == nil {
 		t.Error("not disconnected")
 	}
-	mu.Unlock()
-	srv.Close()
-	wg.Wait()
+	srv.Stop()
 }
