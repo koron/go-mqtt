@@ -11,7 +11,7 @@ jobs:
     - run: go version && go env
     - checkout
     - run: go get -v -t -d ./...
-    - run: go test -v ./packet ./client ./server
+    - run: go test -v ./internal/... ./packet ./client ./server
 
   build+module:
     docker:
@@ -27,7 +27,7 @@ jobs:
         - module-v1-{{ .Branch }}-{{ checksum "go.sum" }}
         - module-v1-{{ .Branch }}-
         - module-v1-
-    - run: go test -v ./packet ./client ./server
+    - run: go test -v ./internal/... ./packet ./client ./server
     - save_cache:
         key: module-v1-{{ .Branch }}-{{ checksum "go.sum" }}
         paths:

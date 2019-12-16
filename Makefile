@@ -1,7 +1,7 @@
 default: test
 
 test:
-	go test ./...
+	go test -v ./internal/... ./packet ./client ./server
 
 test-full:
 	go test -v -race ./...
