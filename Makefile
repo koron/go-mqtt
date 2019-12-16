@@ -2,6 +2,7 @@ default: test
 
 test:
 	go test ./internal/... ./packet ./client ./server ./itest
+	go build -v ./examples/...
 
 test-full:
 	go test -v -race ./...
