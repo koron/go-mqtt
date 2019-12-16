@@ -4,9 +4,11 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
+	"net/url"
 
 	"github.com/koron/go-mqtt/internal/waitop"
 	"github.com/koron/go-mqtt/packet"
+	"golang.org/x/net/websocket"
 )
 
 // Connect connects to MQTT broker and returns a Client.
@@ -63,23 +65,62 @@ func dial(p Param) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	opts := p.options()
-	to := opts.ConnectTimeout
 	switch u.Scheme {
 	case "tcp":
-		c, err := net.DialTimeout("tcp", u.Host, to)
-		if err != nil {
-			return nil, err
-		}
-		return c, nil
+		return dialTCP(p, u)
 	case "ssl", "tcps", "tls":
-		c, err := tls.DialWithDialer(&net.Dialer{Timeout: to},
-			"tcp", u.Host, opts.TLSConfig)
-		if err != nil {
-			return nil, err
-		}
-		return c, nil
-	default:
-		return nil, ErrUnknownProtocol
+		return dialTLS(p, u)
+	case "ws":
+		return dialWS(p, u)
+	case "wss":
+		return dialWSS(p, u)
 	}
+	return nil, ErrUnknownProtocol
+}
+
+func dialTCP(p Param, u *url.URL) (net.Conn, error) {
+	opts := p.options()
+	c, err := net.DialTimeout("tcp", u.Host, opts.ConnectTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func dialTLS(p Param, u *url.URL) (net.Conn, error) {
+	opts := p.options()
+	c, err := tls.DialWithDialer(opts.dialer(), "tcp", u.Host, opts.TLSConfig)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func dialWS(p Param, u *url.URL) (net.Conn, error) {
+	opts := p.options()
+	cnf, err := websocket.NewConfig(u.String(), opts.wsOrigin(u))
+	if err != nil {
+		return nil, err
+	}
+	cnf.Dialer = opts.dialer()
+	c, err := websocket.DialConfig(cnf)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func dialWSS(p Param, u *url.URL) (net.Conn, error) {
+	opts := p.options()
+	cnf, err := websocket.NewConfig(u.String(), opts.wsOrigin(u))
+	if err != nil {
+		return nil, err
+	}
+	cnf.Dialer = opts.dialer()
+	cnf.TlsConfig = opts.TLSConfig
+	c, err := websocket.DialConfig(cnf)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }

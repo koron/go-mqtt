@@ -1,7 +1,8 @@
 default: test
 
 test:
-	go test ./...
+	go test ./internal/... ./packet ./client ./server ./itest
+	go build -v ./examples/... ./cmd/...
 
 test-full:
 	go test -v -race ./...
@@ -27,4 +28,7 @@ report:
 deps:
 	go get -v -u -d -t ./...
 
-.PHONY: test test-full lint cyclo report deps
+tags:
+	gotags -f tags -R .
+
+.PHONY: test test-full lint cyclo report deps tags
