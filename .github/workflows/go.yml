@@ -25,4 +25,4 @@ jobs:
         path: src/github.com/${{ github.repository }}
 
     - name: Unit test
-      run: go test ./internal/... ./packet ./client ./server
+      run: go test ./internal/... ./packet ./client ./server ./itest
