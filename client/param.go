@@ -126,7 +126,7 @@ func (o *Options) wsOrigin(u *url.URL) string {
 	return wsOrigin(u)
 }
 
-func  wsOrigin(u *url.URL) string {
+func wsOrigin(u *url.URL) string {
 	v := *u
 	// convert schema.
 	if v.Scheme == "wss" {

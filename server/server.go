@@ -41,7 +41,7 @@ type Server struct {
 	Adapter Adapter
 	Options *Options
 
-	st        int32
+	st       int32
 	logger   *log.Logger
 	quit     chan bool
 	listener net.Listener

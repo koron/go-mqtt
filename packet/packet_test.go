@@ -48,3 +48,7 @@ func compareStrings(t *testing.T, actual, expected []string) {
 		}
 	}
 }
+
+func str2ptr(s string) *string {
+	return &s
+}

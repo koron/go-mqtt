@@ -1,6 +1,9 @@
 package packet
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestConnect1(t *testing.T) {
 	data := []byte{
@@ -34,38 +37,21 @@ func TestConnect1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.ClientID != "go-mqtt" {
-		t.Errorf("unexpected ClientID: %s", p.ClientID)
-	}
-	if p.Version != 4 {
-		t.Errorf("unexpected Version: %d", p.Version)
-	}
-	if p.Username == nil || *p.Username != "username" {
-		t.Errorf("unexpected Username: %v", p.Username)
-	}
-	if p.Password == nil || *p.Password != "verysecret" {
-		t.Errorf("unexpected Password: %v", p.Password)
-	}
-	if !p.CleanSession {
-		t.Errorf("unexpected CleanSession: %v", p.CleanSession)
-	}
-	if p.KeepAlive != 10 {
-		t.Errorf("unexpected KeepAlive: %d", p.KeepAlive)
-	}
-	if !p.WillFlag {
-		t.Errorf("unexpected WillFlag: %v", p.WillFlag)
-	}
-	if p.WillQoS != QAtLeastOnce {
-		t.Errorf("unexpected WillQoS: %v", p.WillQoS)
-	}
-	if p.WillRetain {
-		t.Errorf("unexpected WillRetain: %v", p.WillRetain)
-	}
-	if p.WillTopic != "will" {
-		t.Errorf("unexpected WillTopic: %s", p.WillTopic)
-	}
-	if p.WillMessage != "send me home" {
-		t.Errorf("unexpected WillMessage: %s", p.WillMessage)
+
+	if !reflect.DeepEqual(Connect{
+		ClientID:     "go-mqtt",
+		Version:      4,
+		Username:     str2ptr("username"),
+		Password:     str2ptr("verysecret"),
+		CleanSession: true,
+		KeepAlive:    10,
+		WillFlag:     true,
+		WillQoS:      QAtLeastOnce,
+		WillRetain:   false,
+		WillTopic:    "will",
+		WillMessage:  "send me home",
+	}, p) {
+		t.Fatalf("mismatch Connect:\n actual=%+v", p)
 	}
 
 	// encode test.
