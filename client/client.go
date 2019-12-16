@@ -74,7 +74,7 @@ type client struct {
 	// auto keep aliving
 	kd time.Duration
 	kl sync.Mutex
-	kt *time.Timer
+	kx chan struct{}
 
 	wl sync.RWMutex
 	wt map[packet.ID]*waitop.WaitOp
@@ -272,27 +272,42 @@ func (c *client) send(p packet.Packet) error {
 
 func (c *client) keepAliveLoop() {
 	c.kl.Lock()
-	c.kt = time.NewTimer(c.kd)
+	c.kx = make(chan struct{})
+	ti := time.NewTimer(c.kd)
+	tistop := func() {
+		if !ti.Stop() {
+			<-ti.C
+		}
+	}
 	c.kl.Unlock()
 loop:
 	for {
 		select {
 		case <-c.quit:
 			break loop
-		case <-c.kt.C:
+		case <-c.kx:
+			tistop()
+			ti.Reset(c.kd)
+		case <-ti.C:
 			go c.Ping()
+			// c.keepAliveExtend() will be called and resumed the Timer by
+			// c.send() when sending Ping packet.
 		}
 	}
 	c.kl.Lock()
-	c.kt.Stop()
-	c.kt = nil
+	tistop()
+	close(c.kx)
+	c.kx = nil
 	c.kl.Unlock()
 }
 
 func (c *client) keepAliveExtend() {
 	c.kl.Lock()
-	if c.kt != nil {
-		c.kt.Reset(c.kd)
+	if c.kx != nil {
+		select {
+		case c.kx <- struct{}{}:
+		default:
+		}
 	}
 	c.kl.Unlock()
 }
