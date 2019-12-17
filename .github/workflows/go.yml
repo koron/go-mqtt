@@ -27,5 +27,8 @@ jobs:
       with:
         path: src/github.com/${{ github.repository }}
 
-    - name: Unit test
+    - name: Test
       run: make test
+
+    - name: Test full
+      run: make test-full
