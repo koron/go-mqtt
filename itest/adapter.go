@@ -3,6 +3,7 @@ package itest
 import (
 	"sync"
 
+	"github.com/koron/go-mqtt/mqtopic"
 	"github.com/koron/go-mqtt/packet"
 	"github.com/koron/go-mqtt/server"
 )
@@ -41,12 +42,16 @@ func (a *Adapter) Disconnect(srv *server.Server, ca server.ClientAdapter, err er
 }
 
 func (a *Adapter) dispatch(src *clientAdapter, m *server.Message) {
+	topic, err := mqtopic.Parse(m.Topic)
+	if err != nil {
+		return
+	}
 	a.mu.Lock()
 	for _, dst := range a.cas {
 		if dst == src {
 			continue
 		}
-		go dst.dispatch(m)
+		go dst.dispatch(topic, m)
 	}
 	a.mu.Unlock()
 }
@@ -57,7 +62,7 @@ type clientAdapter struct {
 	id string
 	a  *Adapter
 	c  server.Client
-	ts map[string]struct{}
+	fm map[string]mqtopic.Filter
 }
 
 func (ca *clientAdapter) ID() string {
@@ -78,22 +83,27 @@ func (ca *clientAdapter) OnPing() (bool, error) {
 
 func (ca *clientAdapter) OnSubscribe(topics []server.Topic) ([]server.QoS, error) {
 	q := make([]server.QoS, len(topics))
-	if len(topics) > 0 && ca.ts == nil {
-		ca.ts = make(map[string]struct{})
+	if len(topics) > 0 && ca.fm == nil {
+		ca.fm = make(map[string]mqtopic.Filter)
 	}
 	for i, topic := range topics {
+		f, err := mqtopic.ParseFilter(topic.Filter)
+		if err != nil {
+			q[i] = server.Failure
+			continue
+		}
 		q[i] = server.AtMostOnce
-		ca.ts[topic.Filter] = struct{}{}
+		ca.fm[topic.Filter] = f
 	}
 	return q, nil
 }
 
 func (ca *clientAdapter) OnUnsubscribe(filters []string) error {
-	if len(ca.ts) == 0 || len(filters) == 0 {
+	if len(ca.fm) == 0 || len(filters) == 0 {
 		return nil
 	}
 	for _, f := range filters {
-		delete(ca.ts, f)
+		delete(ca.fm, f)
 	}
 	return nil
 }
@@ -103,9 +113,13 @@ func (ca *clientAdapter) OnPublish(m *server.Message) error {
 	return nil
 }
 
-func (ca *clientAdapter) dispatch(m *server.Message) {
-	// TODO: filtering by topics (`ca.ts`)
-	_ = ca.c.Publish(m.QoS, m.Retain, m.Topic, m.Body)
+func (ca *clientAdapter) dispatch(topic mqtopic.Topic, m *server.Message) {
+	for _, f := range ca.fm {
+		if f.Match(topic) {
+			_ = ca.c.Publish(m.QoS, m.Retain, m.Topic, m.Body)
+			return
+		}
+	}
 }
 
 var _ server.ClientAdapter = (*clientAdapter)(nil)
