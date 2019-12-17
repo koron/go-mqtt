@@ -4,6 +4,7 @@ on: [push]
 
 env:
   GOPATH: ${{ github.workspace }}/..
+  GO111MODULE: 'on'
 
 jobs:
 
