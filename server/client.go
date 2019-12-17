@@ -36,7 +36,7 @@ type client struct {
 	// monitorLoop related.
 	md time.Duration
 	ml sync.Mutex
-	mt *time.Timer
+	mx chan struct{}
 }
 
 var _ Client = (*client)(nil)
@@ -129,34 +129,46 @@ func (c *client) receiveConnect() (*packet.Connect, error) {
 }
 
 func (c *client) monitorLoop() {
-	defer func() {
-		// stop timer and mark WaitGroup as done.
-		c.ml.Lock()
-		c.mt.Stop()
-		c.mt = nil
-		c.ml.Unlock()
-		c.wg.Done()
-	}()
-
 	c.ml.Lock()
-	c.mt = time.NewTimer(c.md)
+	c.mx = make(chan struct{})
+	ti := time.NewTimer(c.md)
+	tistop := func() {
+		if !ti.Stop() {
+			<-ti.C
+		}
+	}
 	c.ml.Unlock()
+
+loop:
 	for {
 		select {
 		case <-c.quit:
-			return
-		case <-c.mt.C:
+			tistop()
+			break loop
+		case <-c.mx:
+			tistop()
+			ti.Reset(c.md)
+		case <-ti.C:
 			c.terminate()
-			return
+			break loop
 		}
 	}
+
+	c.ml.Lock()
+	close(c.mx)
+	c.mx = nil
+	c.ml.Unlock()
+	c.wg.Done()
 }
 
 // monitorExtend resets timer of expiration monitor.
 func (c *client) monitorExtend() {
 	c.ml.Lock()
-	if c.mt != nil {
-		c.mt.Reset(c.md)
+	if c.mx != nil {
+		select {
+		case c.mx <- struct{}{}:
+		default:
+		}
 	}
 	c.ml.Unlock()
 }

@@ -1,7 +1,7 @@
 default: test
 
 test:
-	go test ./internal/... ./packet ./client ./server ./itest
+	go test ./internal/... ./mqtopic ./packet ./client ./server ./itest
 	go build -v ./examples/... ./cmd/...
 
 test-full:

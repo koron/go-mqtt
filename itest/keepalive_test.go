@@ -1,7 +1,6 @@
 package itest
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -10,58 +9,29 @@ import (
 )
 
 func TestKeepAlive(t *testing.T) {
-	var wg sync.WaitGroup
-	srv := server.Server{
-		Options: &server.Options{
-			DisableMonitor: true,
-		},
-	}
-	l := newListener(t)
+	t.Parallel()
 
-	wg.Add(1)
-	go func() {
-		err := srv.Serve(l)
-		if err != nil {
-			t.Fatal("Serve is failed: ", err)
-		}
-		wg.Done()
-	}()
+	srv := NewServer(t, nil, &server.Options{
+		DisableMonitor: true,
+	}).Start()
 
-	time.Sleep(time.Millisecond * 100)
-
-	var disconnReason error
-	var mu sync.Mutex
-	_, err := client.Connect(client.Param{
-		Addr: "tcp://" + l.Addr().String(),
-		OnDisconnect: func(reason error, param client.Param) {
-			mu.Lock()
-			disconnReason = reason
-			mu.Unlock()
-		},
-		ID: t.Name(),
+	c0 := srv.Connect(t, client.Param{
 		Options: &client.Options{
 			KeepAlive:            2,
 			DisableAutoKeepAlive: true,
 		},
 	})
-	if err != nil {
-		t.Fatal("client.Connect failed: ", err)
-	}
 
 	time.Sleep(time.Second * 3)
 
-	mu.Lock()
-	if disconnReason != nil {
-		t.Error("disconnected unexpectedly: ", disconnReason)
+	if err := c0.DisconnectReason(); err != nil {
+		t.Errorf("disconnected unexpectedly: %s", err)
 	}
-	mu.Unlock()
-	srv.Close()
-	wg.Wait()
+
+	srv.Stop()
 
 	time.Sleep(time.Millisecond * 100)
-	mu.Lock()
-	if disconnReason == nil {
+	if err := c0.DisconnectReason(); err == nil {
 		t.Error("client aliving unexpectedly")
 	}
-	mu.Unlock()
 }

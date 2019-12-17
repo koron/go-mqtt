@@ -1,8 +1,8 @@
 # MQTT for golang
 
 [![GoDoc](https://godoc.org/github.com/koron/go-mqtt?status.svg)](https://godoc.org/github.com/koron/go-mqtt)
+[![Actions/Go](https://github.com/koron/go-mqtt/workflows/Go/badge.svg)](https://github.com/koron/go-mqtt/actions?query=workflow%3AGo)
 [![CircleCI](https://img.shields.io/circleci/project/github/koron/go-mqtt/master.svg)](https://circleci.com/gh/koron/go-mqtt/tree/master)
-[![Build Status](https://travis-ci.org/koron/go-mqtt.svg?branch=master)](https://travis-ci.org/koron/go-mqtt)
 [![Go Report Card](https://goreportcard.com/badge/github.com/koron/go-mqtt)](https://goreportcard.com/report/github.com/koron/go-mqtt)
 
 Yet another MQTT packages for golang.
