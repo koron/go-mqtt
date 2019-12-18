@@ -280,22 +280,28 @@ func (c *client) keepAliveLoop() {
 		}
 	}
 	c.kl.Unlock()
+
+	needStop := true
 loop:
 	for {
 		select {
 		case <-c.quit:
+			tistop()
 			break loop
 		case <-c.kx:
-			tistop()
+			if needStop {
+				tistop()
+			}
 			ti.Reset(c.kd)
+			needStop = true
 		case <-ti.C:
+			needStop = false
 			go c.Ping()
 			// c.keepAliveExtend() will be called and resumed the Timer by
 			// c.send() when sending Ping packet.
 		}
 	}
 	c.kl.Lock()
-	tistop()
 	close(c.kx)
 	c.kx = nil
 	c.kl.Unlock()

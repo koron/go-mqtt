@@ -77,6 +77,9 @@ func (srv *Server) Connect(tb testing.TB, p client.Param) *Client {
 	if p.ID == "" {
 		p.ID = fmt.Sprintf("%s-%d", tb.Name(), srv.cn)
 		srv.cn++
+		if n := len(p.ID); n > 20 {
+			p.ID = p.ID[n-20:]
+		}
 	}
 	c0.ID = p.ID
 	if p.OnDisconnect == nil {
