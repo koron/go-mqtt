@@ -83,7 +83,6 @@ func (f Filter) Match(topic Topic) bool {
 		if len(topic) < last {
 			return false
 		}
-		//return f[:last].match(topic[:last])
 		if !f[:last].match(topic[:last]) {
 			return false
 		}
