@@ -116,7 +116,12 @@ func TestFilter_Match(t *testing.T) {
 				"sport/tennis/player1",
 				"sport/tennis/player1/ranking",
 				"sport/tennis/player1/ranking/wimbledon",
-			}, nil},
+			}, []string{
+				"sport",
+				"sport/",
+				"sport/tenis",
+				"sport/tenis/",
+			}},
 		{"sport/tennis/+",
 			[]string{
 				"sport/tennis/player1",
@@ -141,9 +146,14 @@ func TestFilter_Match(t *testing.T) {
 				"sport/baseball/player2",
 				"sport/football/player2",
 			}},
-		{"+/+", []string{"/finance"}, nil},
+		{"+/+", []string{"/finance"}, []string{
+			"$SYS/foo",
+		}},
 		{"/+", []string{"/finance"}, nil},
-		{"+", nil, []string{"/finance"}},
+		{"+", nil, []string{
+			"/finance",
+			"$SYS",
+		}},
 	} {
 		f, err := ParseFilter(tc.filter)
 		if err != nil {

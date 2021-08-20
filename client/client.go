@@ -49,7 +49,6 @@ var (
 // client implements a simple MQTT client.
 type client struct {
 	conn net.Conn
-	wg   sync.WaitGroup
 	quit chan bool
 	r    packet.Reader
 	p    Param

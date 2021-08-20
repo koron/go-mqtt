@@ -75,15 +75,11 @@ func ParseFilter(s string) (Filter, error) {
 func (f Filter) Match(topic Topic) bool {
 	if last := len(f) - 1; f[last] == "#" {
 		if last == 0 {
-			if strings.HasPrefix(topic[0], "$") {
-				return false
-			}
-			return true
+			return !strings.HasPrefix(topic[0], "$")
 		}
 		if len(topic) < last {
 			return false
 		}
-		//return f[:last].match(topic[:last])
 		if !f[:last].match(topic[:last]) {
 			return false
 		}

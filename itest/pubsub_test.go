@@ -1,6 +1,7 @@
 package itest
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -27,19 +28,21 @@ func TestPubSub(t *testing.T) {
 	if err != nil {
 		log.Fatalf("c0.Subscribe() failed: %s", err)
 	}
-	ch := make(chan struct{})
+	ch := make(chan error)
 	go func() {
+		defer close(ch)
 		m, err := c0.C.Read(true)
 		if err != nil {
-			t.Fatalf("c0.C.Read() failed: %s", err)
+			ch <- fmt.Errorf("c0.C.Read() failed: %w", err)
+			return
 		}
 		if !reflect.DeepEqual(m, &client.Message{
 			Topic: "users/123/objects/789",
 			Body:  []byte("Hello MQTT"),
 		}) {
-			t.Fatalf("unexpected message: %+v", m)
+			ch <- fmt.Errorf("unexpected message: %+v", m)
+			return
 		}
-		close(ch)
 	}()
 
 	c1 := srv.Connect(t, client.Param{
@@ -55,7 +58,10 @@ func TestPubSub(t *testing.T) {
 	}
 
 	// wait the goroutine ends
-	<-ch
+	err = <-ch
+	if err != nil {
+		t.Fatalf("read failure: %v", err)
+	}
 
 	c1.Disconnect(t, false)
 	c0.Disconnect(t, false)

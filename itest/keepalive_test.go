@@ -31,13 +31,29 @@ func (se *syncErr) set(err error) {
 func TestKeepAlive(t *testing.T) {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	t.Parallel()
-	srv := NewServer(t, nil, nil).Start()
+
+	var (
+		keepAlive       = 2
+		monitorInterval = 5
+		pingExpect      = int(float64(monitorInterval) / (float64(keepAlive) - 0.5))
+	)
+
+	var pingMu sync.Mutex
+	var pingCnt int
+	srv := NewServer(t, &Adapter{
+		onPing: func() (bool, error) {
+			pingMu.Lock()
+			pingCnt++
+			pingMu.Unlock()
+			return true, nil
+		},
+	}, nil).Start()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var cerr syncErr
 	_ = srv.Connect(t, client.Param{
 		Options: &client.Options{
-			KeepAlive: 2,
+			KeepAlive: uint16(keepAlive),
 		},
 		OnDisconnect: func(reason error, param client.Param) {
 			cerr.set(reason)
@@ -45,7 +61,7 @@ func TestKeepAlive(t *testing.T) {
 		},
 	})
 
-	ti := time.NewTimer(5 * time.Second)
+	ti := time.NewTimer(time.Duration(monitorInterval) * time.Second)
 wait:
 	for {
 		select {
@@ -69,6 +85,12 @@ wait:
 
 	if err := cerr.get(); err != nil {
 		t.Fatal("client aliving unexpectedly")
+	}
+
+	pingMu.Lock()
+	defer pingMu.Unlock()
+	if pingCnt != pingExpect {
+		t.Fatalf("ping count failed: expect=%d actual=%d", pingExpect, pingCnt)
 	}
 }
 

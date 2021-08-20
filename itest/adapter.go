@@ -8,10 +8,14 @@ import (
 	"github.com/koron/go-mqtt/server"
 )
 
+type onPingFunc func() (bool, error)
+
 // Adapter provides simple MQTT server behavior
 type Adapter struct {
 	mu  sync.Mutex
 	cas map[string]*clientAdapter
+
+	onPing onPingFunc
 }
 
 // Connect is called when new client is connected.
@@ -78,6 +82,9 @@ func (ca *clientAdapter) OnDisconnect() error {
 }
 
 func (ca *clientAdapter) OnPing() (bool, error) {
+	if ca.a.onPing != nil {
+		return ca.a.onPing()
+	}
 	return true, nil
 }
 

@@ -1,34 +1,41 @@
-default: test
-
+.PHONY: test
 test:
 	go test ./internal/... ./mqtopic ./packet ./client ./server ./itest
 	go build -v ./examples/... ./cmd/...
 
+.PHONY: test-full
 test-full:
 	go test -v -race ./...
 
-lint:
-	go vet ./...
-	@echo ""
-	golint ./...
-
-cyclo:
-	-gocyclo -top 10 -avg .
-
-report:
-	@echo "misspell"
-	@find . -name *.go | xargs misspell
-	@echo ""
-	-gocyclo -over 14 -avg .
-	@echo ""
-	go vet ./...
-	@echo ""
-	golint ./...
-
-deps:
-	go get -v -u -d -t ./...
-
+.PHONY: tags
 tags:
 	gotags -f tags -R .
 
-.PHONY: test test-full lint cyclo report deps tags
+.PHONY: cover
+cover:
+	mkdir -p tmp
+	go test -coverprofile tmp/_cover.out ./...
+	go tool cover -html tmp/_cover.out -o tmp/cover.html
+
+.PHONY: checkall
+checkall: vet lint staticcheck
+
+.PHONY: vet
+vet:
+	go vet ./...
+
+.PHONY: lint
+lint:
+	golint ./...
+
+.PHONY: staticcheck
+staticcheck:
+	staticcheck ./...
+
+.PHONY: clean
+clean:
+	go clean
+	rm -f tags
+	rm -f tmp/_cover.out tmp/cover.html
+
+# based on: github.com/koron-go/_skeleton/Makefile

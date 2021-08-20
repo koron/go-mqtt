@@ -1,3 +1,6 @@
+/*
+Package waitop provides wait for executing asynchronous operation.
+*/
 package waitop
 
 import (

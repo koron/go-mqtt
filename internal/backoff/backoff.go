@@ -1,3 +1,6 @@
+/*
+Package backoff provides retry backoff algorithm.
+*/
 package backoff
 
 import "time"

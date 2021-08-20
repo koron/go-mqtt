@@ -10,15 +10,6 @@ import (
 	"github.com/koron/go-mqtt/server"
 )
 
-func newListener(tb testing.TB) net.Listener {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		tb.Helper()
-		tb.Fatalf("net.Listen failed: %s", err)
-	}
-	return l
-}
-
 // Server wraps *server.Server for test.
 type Server struct {
 	tb testing.TB
