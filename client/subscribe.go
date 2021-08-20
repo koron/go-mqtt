@@ -43,8 +43,5 @@ func (e *UnsubscribeError) Error() string {
 }
 
 func (e *UnsubscribeError) hasErrors() bool {
-	if e.MismatchPacketID {
-		return true
-	}
-	return false
+	return e.MismatchPacketID
 }

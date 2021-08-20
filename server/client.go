@@ -298,13 +298,11 @@ func (c *client) processSubscribe(p *packet.Subscribe) error {
 	for i := range rp.Results {
 		rp.Results[i] = packet.SubscribeFailure
 	}
-	if rq != nil {
-		for i, q := range rq {
-			if i >= l {
-				break
-			}
-			rp.Results[i] = q.toSubscribeResult()
+	for i, q := range rq {
+		if i >= l {
+			break
 		}
+		rp.Results[i] = q.toSubscribeResult()
 	}
 	// send it.
 	c.sq <- rp
