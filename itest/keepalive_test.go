@@ -43,7 +43,6 @@ func TestKeepAlive(t *testing.T) {
 	srv := NewServer(t, &Adapter{
 		onPing: func() (bool, error) {
 			pingMu.Lock()
-			log.Printf("HERE_A:0")
 			pingCnt++
 			pingMu.Unlock()
 			return true, nil
