@@ -12,7 +12,7 @@ test_key.pem:
 test_csr.pem: test_key.pem
 	openssl req -new -out $@ -key $< -subj "/C=JP/ST=Tokyo/O=KaoriYa/OU=Development/CN=target.test.kaoriya.net"
 
-test_cert.pem: test_csr.pem cacert.pem CA/cakey.pem
+test_cert.pem: test_csr.pem
 	$(MAKE) ca-reset
 	openssl ca -config CA/openssl.cnf -extfile CA/ip.cnf -batch -out $@ -infiles test_csr.pem
 
