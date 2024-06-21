@@ -151,7 +151,10 @@ func (p *Connect) Decode(b []byte) error {
 	if passwordFlag {
 		s, err := d.readString()
 		if err != nil {
-			return err
+			// zero-length password should be OK
+			if err != errInsufficientString {
+				return err
+			}
 		}
 		password = &s
 	}
