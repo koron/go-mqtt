@@ -16,6 +16,9 @@ type Client interface {
 	// Publish publishes a message to the client.
 	Publish(qos QoS, retain bool, topic string, body []byte) error
 
+	// RemoteAddr returns remote address of the client.
+	RemoteAddr() net.Addr
+
 	// Close disconnects the client.
 	Close()
 }
@@ -398,6 +401,10 @@ func (c *client) publish0(retain bool, topic string, body []byte) error {
 	}
 	c.sq <- p
 	return nil
+}
+
+func (c *client) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
 }
 
 func (c *client) Close() {
