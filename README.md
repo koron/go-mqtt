@@ -3,6 +3,7 @@
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/koron/go-mqtt)](https://pkg.go.dev/github.com/koron/go-mqtt)
 [![Actions/Go](https://github.com/koron/go-mqtt/workflows/Go/badge.svg)](https://github.com/koron/go-mqtt/actions?query=workflow%3AGo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/koron/go-mqtt)](https://goreportcard.com/report/github.com/koron/go-mqtt)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/koron/go-mqtt)
 
 Yet another MQTT packages for golang.
 
