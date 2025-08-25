@@ -99,3 +99,53 @@ func TestDisconnect1(t *testing.T) {
 	}
 	compareBytes(t, b, data)
 }
+
+func TestConnect2(t *testing.T) {
+	data := []byte{
+		0x10,
+		61 - 18,
+		0, // Length MSB (0)
+		4, // Length LSB (4)
+		'M', 'Q', 'T', 'T',
+		4,   // Protocol level 4
+		206, // connect flags 11001110, will QoS = 01
+		0,   // Keep Alive MSB (0)
+		10,  // Keep Alive LSB (10)
+		0,   // Client ID MSB (0)
+		7,   // Client ID LSB (7)
+		'g', 'o', '-', 'm', 'q', 't', 't',
+		0, // Will Topic MSB (0)
+		4, // Will Topic LSB (4)
+		'w', 'i', 'l', 'l',
+		0,  // Will Message MSB (0)
+		12, // Will Message LSB (12)
+		's', 'e', 'n', 'd', ' ', 'm', 'e', ' ', 'h', 'o', 'm', 'e',
+		0, // Username ID MSB (0)
+		0, // Username ID LSB (0)
+		// zero-length username
+		0, // Password ID MSB (0)
+		0, // Password ID LSB (0)
+		// zero-length password
+	}
+	p := Connect{}
+	err := p.Decode(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(Connect{
+		ClientID:     "go-mqtt",
+		Version:      4,
+		Username:     str2ptr(""),
+		Password:     str2ptr(""),
+		CleanSession: true,
+		KeepAlive:    10,
+		WillFlag:     true,
+		WillQoS:      QAtLeastOnce,
+		WillRetain:   false,
+		WillTopic:    "will",
+		WillMessage:  "send me home",
+	}, p) {
+		t.Fatalf("mismatch Connect:\n actual=%+v", p)
+	}
+}
