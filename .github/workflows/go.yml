@@ -31,10 +31,12 @@ jobs:
     - name: Build all "main" packages
       shell: bash
       run: |
-        root=$(go list -f '{{.ImportPath}}' .)
-        for path in $(go list -f '{{if (eq .Name "main")}}{{.ImportPath}}{{end}}' ./... ) ; do
-          dir=".${path#${root}}"
-          printf "building %s\t(%s)\n" $(basename "$path") $dir
+        go list -f '{{if (eq .Name "main")}}{{.ImportPath}} .{{slice .ImportPath (len .Module.Path)}}{{end}}' ./... | while IFS= read -r line ; do
+          read -a e <<< "$line"
+          path="${e[0]}"
+          dir="${e[1]}"
+          name=$(basename $path)
+          printf "building %s\t(%s)\n" $name $dir
           ( cd "$dir" && go build )
         done
 
