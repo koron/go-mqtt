@@ -158,6 +158,9 @@ func (d *decoder) readString() (string, error) {
 		}
 		return "", err
 	}
+	if ul == 0 {
+		return "", nil
+	}
 	l := int(ul)
 	b := make([]byte, l)
 	n, err := d.r.Read(b)
