@@ -2,6 +2,8 @@ package itest
 
 import (
 	"context"
+	"errors"
+	"io"
 	"log"
 	"sync"
 	"testing"
@@ -83,8 +85,9 @@ wait:
 
 	srv.Stop()
 
-	if err := cerr.get(); err != nil {
-		t.Fatal("client aliving unexpectedly")
+	time.Sleep(100 * time.Millisecond)
+	if err := cerr.get(); err == nil || !errors.Is(err, io.EOF) {
+		t.Fatalf("client aliving unexpectedly: %v", err)
 	}
 
 	pingMu.Lock()
