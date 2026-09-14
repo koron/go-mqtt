@@ -28,7 +28,8 @@ func NewServer(tb testing.TB, a server.Adapter, opts *server.Options) *Server {
 		tb.Fatalf("net.Listen failed: %s", err)
 	}
 	return &Server{
-		l: l,
+		tb: tb,
+		l:  l,
 		s: &server.Server{
 			Addr:    "tcp://" + l.Addr().String(),
 			Adapter: a,
